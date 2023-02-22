@@ -2,7 +2,20 @@
 
 This repository contains the smart contracts for revert v3utils.
 
-It uses Foundry as development toolchain (https://book.getfoundry.sh/).
+It uses Foundry as development toolchain.
+
+
+## Setup
+
+Install foundry 
+
+https://book.getfoundry.sh/getting-started/installation
+
+Install dependencies
+
+```sh
+forge install
+```
 
 
 ## Tests

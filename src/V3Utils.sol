@@ -407,7 +407,7 @@ contract V3Utils is IERC721Receiver {
                 revert TransferError(); // reverts for fee-on-transfer tokens
             }
         }
-        if (address(otherToken) != address(0) && token0 != otherToken && token1 != otherToken && amountOther > amountAddedOther) {
+        if (amountOther > amountAddedOther && address(otherToken) != address(0) && token0 != otherToken && token1 != otherToken) {
             uint256 balanceBefore = otherToken.balanceOf(address(this));
             SafeERC20.safeTransferFrom(otherToken, msg.sender, address(this), amountOther - amountAddedOther);
             uint256 balanceAfter = otherToken.balanceOf(address(this));
