@@ -8,8 +8,9 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 import "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
-/// @title v3Utils - Utility functions for Uniswap V3 positions
-/// @notice This is a completely ownerless/stateless contract - does not hold any ERC20 or NFTs.
+/// @title v3Utils v1.0
+/// @notice Utility functions for Uniswap V3 positions
+/// This is a completely ownerless/stateless contract - does not hold any ERC20 or NFTs.
 /// It can be simply redeployed when new / better functionality is implemented
 contract V3Utils is IERC721Receiver {
 
@@ -304,7 +305,7 @@ contract V3Utils is IERC721Receiver {
         uint256 amountAddMin0;
         uint256 amountAddMin1;
 
-        // data to be sent along newly created NFT when transfered to recipient (sent to IERC721Receiver callback)
+        // data to be sent along newly created NFT when transfered to recipientNFT (sent to IERC721Receiver callback)
         bytes returnData;
     }
 
