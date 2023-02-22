@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.0;
 
-import "../TestBase.sol";
+import "../IntegrationTestBase.sol";
 
-contract V3UtilsIntegrationTest is TestBase {
+contract V3UtilsIntegrationTest is IntegrationTestBase {
    
     function setUp() external {
         _setupBase();

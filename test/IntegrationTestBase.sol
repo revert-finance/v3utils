@@ -4,14 +4,9 @@ pragma solidity ^0.8.0;
 import "forge-std/Test.sol";
 import "forge-std/console.sol";
 
-import "v3-core/interfaces/IUniswapV3Factory.sol";
-import "v3-periphery/interfaces/INonfungiblePositionManager.sol";
-import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-
 import "../src/V3Utils.sol";
 
-
-abstract contract TestBase is Test {
+abstract contract IntegrationTestBase is Test {
     
     uint256 constant Q64 = 2**64;
 
@@ -63,7 +58,6 @@ abstract contract TestBase is Test {
     uint256 mainnetFork;
 
     V3Utils v3utils;
-
 
     function _setupBase() internal {
 

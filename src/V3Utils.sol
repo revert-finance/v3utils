@@ -6,11 +6,14 @@ import "v3-periphery/interfaces/external/IWETH9.sol";
 
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
+import "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
 /// @title v3Utils - Utility functions for Uniswap V3 positions
 /// @notice This is a completely ownerless/stateless contract - does not hold any ERC20 or NFTs.
-/// @dev It can be simply redeployed when new / better functionality is implemented
+/// It can be simply redeployed when new / better functionality is implemented
 contract V3Utils is IERC721Receiver {
+
+    using SafeCast for uint256;
 
     /// @notice Wrapped native token address
     IWETH9 immutable public weth;
@@ -18,7 +21,7 @@ contract V3Utils is IERC721Receiver {
     /// @notice Uniswap v3 position manager
     INonfungiblePositionManager immutable public nonfungiblePositionManager;
 
-    /// @notice 0x swap router
+    /// @notice 0x swap router address
     address immutable public swapRouter;
 
     // error types
@@ -158,7 +161,7 @@ contract V3Utils is IERC721Receiver {
         if (instructions.liquidity > 0) {
             (state.amount0, state.amount1) = _decreaseLiquidity(tokenId, instructions.liquidity, instructions.deadline, instructions.amountIn0, instructions.amountIn1);
         }
-        (state.amount0, state.amount1) = _collectFees(tokenId, IERC20(state.token0), IERC20(state.token1), instructions.feeAmount0 == type(uint128).max ? type(uint128).max : _toUint128(state.amount0 + instructions.feeAmount0), instructions.feeAmount1 == type(uint128).max ? type(uint128).max : _toUint128(state.amount1 + instructions.feeAmount1));
+        (state.amount0, state.amount1) = _collectFees(tokenId, IERC20(state.token0), IERC20(state.token1), instructions.feeAmount0 == type(uint128).max ? type(uint128).max : (state.amount0 + instructions.feeAmount0).toUint128(), instructions.feeAmount1 == type(uint128).max ? type(uint128).max : (state.amount1 + instructions.feeAmount1).toUint128());
 
         if (instructions.whatToDo == WhatToDo.COMPOUND_FEES) {
             if (instructions.targetToken == state.token0) {
@@ -606,11 +609,6 @@ contract V3Utils is IERC721Receiver {
         if (balanceAfter1 - balanceBefore1 != amount1) {
             revert CollectError();
         }
-    }
-
-    // utility function to do safe downcast
-    function _toUint128(uint256 x) private pure returns (uint128 y) {
-        require((y = uint128(x)) == x);
     }
 
     // needed for WETH unwrapping
