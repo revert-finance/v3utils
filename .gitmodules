@@ -1,7 +1,7 @@
 [submodule "lib/v3-core"]
 	path = lib/v3-core
 	url = https://github.com/Uniswap/v3-core
-	branch = c05a0e2c8c08c460fb4d05cfdda30b3ad8deeaac
+	branch = 6562c52e8f75f0c10f9deaf44861847585fc8129
 [submodule "lib/v3-periphery"]
 	path = lib/v3-periphery
 	url = https://github.com/Uniswap/v3-periphery
