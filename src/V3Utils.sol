@@ -45,7 +45,7 @@ contract V3Utils is IERC721Receiver {
     event CompoundFees(uint256 indexed tokenId, uint128 liquidity, uint256 amount0, uint256 amount1);
     event ChangeRange(uint256 indexed tokenId, uint256 newTokenId);
     event WithdrawAndCollectAndSwap(uint256 indexed tokenId, address token, uint256 amount);
-    event Swap(address tokenIn, address tokenOut, uint256 amountIn, uint256 amountOut);
+    event Swap(address indexed tokenIn, address indexed tokenOut, uint256 amountIn, uint256 amountOut);
     event SwapAndMint(uint256 indexed tokenId, uint128 liquidity, uint256 amount0, uint256 amount1);
     event SwapAndIncreaseLiquidity(uint256 indexed tokenId, uint128 liquidity, uint256 amount0, uint256 amount1);
 
@@ -553,9 +553,6 @@ contract V3Utils is IERC721Receiver {
             if (!success) {
                 revert SwapFailed();
             }
-
-            // remove any remaining allowance
-            tokenIn.approve(allowanceTarget, 0);
 
             uint256 balanceInAfter = tokenIn.balanceOf(address(this));
             uint256 balanceOutAfter = tokenOut.balanceOf(address(this));
