@@ -120,7 +120,7 @@ contract V3Utils is IERC721Receiver {
     /// @notice Execute instruction by pulling approved NFT instead of direct safeTransferFrom call from owner
     /// @param tokenId Token to process
     /// @param instructions Instructions to execute
-    function execute(uint256 tokenId, Instructions memory instructions) external
+    function execute(uint256 tokenId, Instructions calldata instructions) external
     {
         // must be approved beforehand
         nonfungiblePositionManager.safeTransferFrom(
