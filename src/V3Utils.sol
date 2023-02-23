@@ -117,16 +117,6 @@ contract V3Utils is IERC721Receiver {
         bytes swapAndMintReturnData;
     }
 
-    /// @notice struct used to store local variables during function execution
-    struct ERC721ReceivedState {
-        address token0;
-        address token1;
-        uint128 liquidity;
-        uint256 amount0;
-        uint256 amount1;
-        uint256 newTokenId;
-    }
-
     /// @notice Execute instruction by pulling approved NFT instead of direct safeTransferFrom call from owner
     /// @param tokenId Token to process
     /// @param instructions Instructions to execute
@@ -156,67 +146,71 @@ contract V3Utils is IERC721Receiver {
         }
 
         Instructions memory instructions = abi.decode(data, (Instructions));
-        ERC721ReceivedState memory state;
 
-        (,,state.token0,state.token1,,,,state.liquidity,,,,) = nonfungiblePositionManager.positions(tokenId);
+        (,,address token0,address token1,,,,uint128 liquidity,,,,) = nonfungiblePositionManager.positions(tokenId);
 
+        uint256 amount0;
+        uint256 amount1;
         if (instructions.liquidity > 0) {
-            (state.amount0, state.amount1) = _decreaseLiquidity(tokenId, instructions.liquidity, instructions.deadline, instructions.amountIn0, instructions.amountIn1);
+            (amount0, amount1) = _decreaseLiquidity(tokenId, instructions.liquidity, instructions.deadline, instructions.amountIn0, instructions.amountIn1);
         }
-        (state.amount0, state.amount1) = _collectFees(tokenId, IERC20(state.token0), IERC20(state.token1), instructions.feeAmount0 == type(uint128).max ? type(uint128).max : (state.amount0 + instructions.feeAmount0).toUint128(), instructions.feeAmount1 == type(uint128).max ? type(uint128).max : (state.amount1 + instructions.feeAmount1).toUint128());
+        (amount0, amount1) = _collectFees(tokenId, IERC20(token0), IERC20(token1), instructions.feeAmount0 == type(uint128).max ? type(uint128).max : (amount0 + instructions.feeAmount0).toUint128(), instructions.feeAmount1 == type(uint128).max ? type(uint128).max : (amount1 + instructions.feeAmount1).toUint128());
 
         if (instructions.whatToDo == WhatToDo.COMPOUND_FEES) {
-            if (instructions.targetToken == state.token0) {
-                if (state.amount1 < instructions.amountIn1) {
+            if (instructions.targetToken == token0) {
+                if (amount1 < instructions.amountIn1) {
                     revert AmountError();
                 }
-                (state.liquidity, state.amount0, state.amount1) = _swapAndIncrease(SwapAndIncreaseLiquidityParams(tokenId, state.amount0, state.amount1, instructions.recipient, instructions.deadline, IERC20(state.token1), instructions.amountIn1, instructions.amountOut1Min, instructions.swapData1, 0, 0, "", 0, 0), IERC20(state.token0), IERC20(state.token1), instructions.unwrap);
-            } else if (instructions.targetToken == state.token1) {
-                if (state.amount0 < instructions.amountIn0) {
+                (liquidity, amount0, amount1) = _swapAndIncrease(SwapAndIncreaseLiquidityParams(tokenId, amount0, amount1, instructions.recipient, instructions.deadline, IERC20(token1), instructions.amountIn1, instructions.amountOut1Min, instructions.swapData1, 0, 0, "", 0, 0), IERC20(token0), IERC20(token1), instructions.unwrap);
+            } else if (instructions.targetToken == token1) {
+                if (amount0 < instructions.amountIn0) {
                     revert AmountError();
                 }
-                (state.liquidity, state.amount0, state.amount1) = _swapAndIncrease(SwapAndIncreaseLiquidityParams(tokenId, state.amount0, state.amount1, instructions.recipient, instructions.deadline, IERC20(state.token0), 0, 0, "", instructions.amountIn0, instructions.amountOut0Min, instructions.swapData0, 0, 0), IERC20(state.token0), IERC20(state.token1), instructions.unwrap);
+                (liquidity, amount0, amount1) = _swapAndIncrease(SwapAndIncreaseLiquidityParams(tokenId, amount0, amount1, instructions.recipient, instructions.deadline, IERC20(token0), 0, 0, "", instructions.amountIn0, instructions.amountOut0Min, instructions.swapData0, 0, 0), IERC20(token0), IERC20(token1), instructions.unwrap);
             } else {
                 // no swap is done here
-                (state.liquidity,state.amount0, state.amount1) = _swapAndIncrease(SwapAndIncreaseLiquidityParams(tokenId, state.amount0, state.amount1, instructions.recipient, instructions.deadline, IERC20(address(0)), 0, 0, "", 0, 0, "", 0, 0), IERC20(state.token0), IERC20(state.token1), instructions.unwrap);
+                (liquidity,amount0, amount1) = _swapAndIncrease(SwapAndIncreaseLiquidityParams(tokenId, amount0, amount1, instructions.recipient, instructions.deadline, IERC20(address(0)), 0, 0, "", 0, 0, "", 0, 0), IERC20(token0), IERC20(token1), instructions.unwrap);
             }
-            emit CompoundFees(tokenId, state.liquidity, state.amount0, state.amount1);            
+            emit CompoundFees(tokenId, liquidity, amount0, amount1);            
         } else if (instructions.whatToDo == WhatToDo.CHANGE_RANGE) {
-            if (instructions.targetToken == state.token0) {
-                if (state.amount1 < instructions.amountIn1) {
+
+            uint256 newTokenId;
+
+            if (instructions.targetToken == token0) {
+                if (amount1 < instructions.amountIn1) {
                     revert AmountError();
                 }
-                (state.newTokenId,,,) = _swapAndMint(SwapAndMintParams(IERC20(state.token0), IERC20(state.token1), instructions.fee, instructions.tickLower, instructions.tickUpper, state.amount0, state.amount1, instructions.recipient, from, instructions.deadline, IERC20(state.token1), instructions.amountIn1, instructions.amountOut1Min, instructions.swapData1, 0, 0, "", 0, 0, instructions.swapAndMintReturnData), instructions.unwrap);
-            } else if (instructions.targetToken == state.token1) {
-                if (state.amount0 < instructions.amountIn0) {
+                (newTokenId,,,) = _swapAndMint(SwapAndMintParams(IERC20(token0), IERC20(token1), instructions.fee, instructions.tickLower, instructions.tickUpper, amount0, amount1, instructions.recipient, from, instructions.deadline, IERC20(token1), instructions.amountIn1, instructions.amountOut1Min, instructions.swapData1, 0, 0, "", 0, 0, instructions.swapAndMintReturnData), instructions.unwrap);
+            } else if (instructions.targetToken == token1) {
+                if (amount0 < instructions.amountIn0) {
                     revert AmountError();
                 }
-                (state.newTokenId,,,) = _swapAndMint(SwapAndMintParams(IERC20(state.token0), IERC20(state.token1), instructions.fee, instructions.tickLower, instructions.tickUpper, state.amount0, state.amount1, instructions.recipient, from, instructions.deadline, IERC20(state.token0), 0, 0, "", instructions.amountIn0, instructions.amountOut0Min, instructions.swapData0, 0, 0, instructions.swapAndMintReturnData), instructions.unwrap);
+                (newTokenId,,,) = _swapAndMint(SwapAndMintParams(IERC20(token0), IERC20(token1), instructions.fee, instructions.tickLower, instructions.tickUpper, amount0, amount1, instructions.recipient, from, instructions.deadline, IERC20(token0), 0, 0, "", instructions.amountIn0, instructions.amountOut0Min, instructions.swapData0, 0, 0, instructions.swapAndMintReturnData), instructions.unwrap);
             } else {
                 // no swap is done here
-                (state.newTokenId,,,) = _swapAndMint(SwapAndMintParams(IERC20(state.token0), IERC20(state.token1), instructions.fee, instructions.tickLower, instructions.tickUpper, state.amount0, state.amount1, instructions.recipient, from, instructions.deadline, IERC20(state.token0), 0, 0, "", 0, 0, "", 0, 0, instructions.swapAndMintReturnData), instructions.unwrap);
+                (newTokenId,,,) = _swapAndMint(SwapAndMintParams(IERC20(token0), IERC20(token1), instructions.fee, instructions.tickLower, instructions.tickUpper, amount0, amount1, instructions.recipient, from, instructions.deadline, IERC20(token0), 0, 0, "", 0, 0, "", 0, 0, instructions.swapAndMintReturnData), instructions.unwrap);
             }
 
-            emit ChangeRange(tokenId, state.newTokenId);
+            emit ChangeRange(tokenId, newTokenId);
         } else if (instructions.whatToDo == WhatToDo.WITHDRAW_AND_COLLECT_AND_SWAP) {
             uint256 targetAmount;
-            if (state.token0 != instructions.targetToken) {
-                (uint256 amountInDelta, uint256 amountOutDelta) = _swap(IERC20(state.token0), IERC20(instructions.targetToken), state.amount0, instructions.amountOut0Min, instructions.swapData0);
-                if (amountInDelta < state.amount0) {
-                    _transferToken(instructions.recipient, IERC20(state.token0), state.amount0 - amountInDelta, instructions.unwrap);
+            if (token0 != instructions.targetToken) {
+                (uint256 amountInDelta, uint256 amountOutDelta) = _swap(IERC20(token0), IERC20(instructions.targetToken), amount0, instructions.amountOut0Min, instructions.swapData0);
+                if (amountInDelta < amount0) {
+                    _transferToken(instructions.recipient, IERC20(token0), amount0 - amountInDelta, instructions.unwrap);
                 }
                 targetAmount += amountOutDelta;
             } else {
-                targetAmount += state.amount0; 
+                targetAmount += amount0; 
             }
-            if (state.token1 != instructions.targetToken) {
-                (uint256 amountInDelta, uint256 amountOutDelta) = _swap(IERC20(state.token1), IERC20(instructions.targetToken), state.amount1, instructions.amountOut1Min, instructions.swapData1);
-                if (amountInDelta < state.amount1) {
-                    _transferToken(instructions.recipient, IERC20(state.token1), state.amount1 - amountInDelta, instructions.unwrap);
+            if (token1 != instructions.targetToken) {
+                (uint256 amountInDelta, uint256 amountOutDelta) = _swap(IERC20(token1), IERC20(instructions.targetToken), amount1, instructions.amountOut1Min, instructions.swapData1);
+                if (amountInDelta < amount1) {
+                    _transferToken(instructions.recipient, IERC20(token1), amount1 - amountInDelta, instructions.unwrap);
                 }
                 targetAmount += amountOutDelta;
             } else {
-                targetAmount += state.amount1; 
+                targetAmount += amount1; 
             }
 
             // send complete target amount
