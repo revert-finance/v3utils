@@ -22,7 +22,7 @@ contract V3Utils is IERC721Receiver {
     /// @notice Uniswap v3 position manager
     INonfungiblePositionManager immutable public nonfungiblePositionManager;
 
-    /// @notice 0x swap router address
+    /// @notice 0x Exchange Proxy
     address immutable public swapRouter;
 
     // error types
@@ -51,6 +51,7 @@ contract V3Utils is IERC721Receiver {
 
     /// @notice Constructor
     /// @param _nonfungiblePositionManager Uniswap v3 position manager
+    /// @param _swapRouter 0x Exchange Proxy
     constructor(INonfungiblePositionManager _nonfungiblePositionManager, address _swapRouter) {
         weth = IWETH9(_nonfungiblePositionManager.WETH9());
         nonfungiblePositionManager = _nonfungiblePositionManager;
