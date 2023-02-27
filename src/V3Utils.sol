@@ -77,13 +77,13 @@ contract V3Utils is IERC721Receiver {
         uint256 amountIn0;
         // if token0 needs to be swapped to targetToken - set values
         uint256 amountOut0Min;
-        bytes swapData0; // encoded data from 0x api call (address,address,bytes) - to,allowanceTarget,data
+        bytes swapData0; // encoded data from 0x api call (address,bytes) - allowanceTarget,data
 
         // amountIn1 is used for swap and also as minAmount1 for decreaseLiquidity (when WITHDRAW_AND_COLLECT_AND_SWAP amountIn1 + available fees1 will be swapped)
         uint256 amountIn1;
         // if token1 needs to be swapped to targetToken - set values
         uint256 amountOut1Min;
-        bytes swapData1; // encoded data from 0x api call (address,address,bytes) - to,allowanceTarget,data
+        bytes swapData1; // encoded data from 0x api call (address,bytes) - allowanceTarget,data
 
         // collect fee amount for COMPOUND_FEES / CHANGE_RANGE / WITHDRAW_AND_COLLECT_AND_SWAP (if uint256(128).max - ALL)
         uint128 feeAmount0;
