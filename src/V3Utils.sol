@@ -73,13 +73,13 @@ contract V3Utils is IERC721Receiver {
         // target token for swaps (if this is address(0) no swaps are executed)
         address targetToken;
 
-        // amountIn0 is used for swap and also as minAmount0 for decreaseLiquidity (when WITHDRAW_AND_COLLECT_AND_SWAP amountIn0 + available fees0 will be swapped)
+        // amountIn0 is used for swap and also as minAmount0 for decreased liquidity + collected fees
         uint256 amountIn0;
         // if token0 needs to be swapped to targetToken - set values
         uint256 amountOut0Min;
         bytes swapData0; // encoded data from 0x api call (address,bytes) - allowanceTarget,data
 
-        // amountIn1 is used for swap and also as minAmount1 for decreaseLiquidity (when WITHDRAW_AND_COLLECT_AND_SWAP amountIn1 + available fees1 will be swapped)
+        // amountIn1 is used for swap and also as minAmount1 for decreased liquidity + collected fees
         uint256 amountIn1;
         // if token1 needs to be swapped to targetToken - set values
         uint256 amountOut1Min;
@@ -155,20 +155,19 @@ contract V3Utils is IERC721Receiver {
         uint256 amount0;
         uint256 amount1;
         if (instructions.liquidity != 0) {
-            (amount0, amount1) = _decreaseLiquidity(tokenId, instructions.liquidity, instructions.deadline, instructions.amountIn0, instructions.amountIn1);
+            (amount0, amount1) = _decreaseLiquidity(tokenId, instructions.liquidity, instructions.deadline, 0, 0); // slippage check is done after collecting
         }
         (amount0, amount1) = _collectFees(tokenId, IERC20(token0), IERC20(token1), instructions.feeAmount0 == type(uint128).max ? type(uint128).max : (amount0 + instructions.feeAmount0).toUint128(), instructions.feeAmount1 == type(uint128).max ? type(uint128).max : (amount1 + instructions.feeAmount1).toUint128());
+        
+        // do slippage check after liquidity AND fees have been collected
+        if (amount0 < instructions.amountIn0 || amount1 < instructions.amountIn1) {
+            revert AmountError();
+        }
 
         if (instructions.whatToDo == WhatToDo.COMPOUND_FEES) {
             if (instructions.targetToken == token0) {
-                if (amount1 < instructions.amountIn1) {
-                    revert AmountError();
-                }
                 (liquidity, amount0, amount1) = _swapAndIncrease(SwapAndIncreaseLiquidityParams(tokenId, amount0, amount1, instructions.recipient, instructions.deadline, IERC20(token1), instructions.amountIn1, instructions.amountOut1Min, instructions.swapData1, 0, 0, "", instructions.amountAddMin0, instructions.amountAddMin1), IERC20(token0), IERC20(token1), instructions.unwrap);
             } else if (instructions.targetToken == token1) {
-                if (amount0 < instructions.amountIn0) {
-                    revert AmountError();
-                }
                 (liquidity, amount0, amount1) = _swapAndIncrease(SwapAndIncreaseLiquidityParams(tokenId, amount0, amount1, instructions.recipient, instructions.deadline, IERC20(token0), 0, 0, "", instructions.amountIn0, instructions.amountOut0Min, instructions.swapData0, instructions.amountAddMin0, instructions.amountAddMin1), IERC20(token0), IERC20(token1), instructions.unwrap);
             } else {
                 // no swap is done here
@@ -180,14 +179,8 @@ contract V3Utils is IERC721Receiver {
             uint256 newTokenId;
 
             if (instructions.targetToken == token0) {
-                if (amount1 < instructions.amountIn1) {
-                    revert AmountError();
-                }
                 (newTokenId,,,) = _swapAndMint(SwapAndMintParams(IERC20(token0), IERC20(token1), instructions.fee, instructions.tickLower, instructions.tickUpper, amount0, amount1, instructions.recipient, instructions.recipientNFT, instructions.deadline, IERC20(token1), instructions.amountIn1, instructions.amountOut1Min, instructions.swapData1, 0, 0, "", instructions.amountAddMin0, instructions.amountAddMin1, instructions.swapAndMintReturnData), instructions.unwrap);
             } else if (instructions.targetToken == token1) {
-                if (amount0 < instructions.amountIn0) {
-                    revert AmountError();
-                }
                 (newTokenId,,,) = _swapAndMint(SwapAndMintParams(IERC20(token0), IERC20(token1), instructions.fee, instructions.tickLower, instructions.tickUpper, amount0, amount1, instructions.recipient, instructions.recipientNFT, instructions.deadline, IERC20(token0), 0, 0, "", instructions.amountIn0, instructions.amountOut0Min, instructions.swapData0, instructions.amountAddMin0, instructions.amountAddMin1, instructions.swapAndMintReturnData), instructions.unwrap);
             } else {
                 // no swap is done here
