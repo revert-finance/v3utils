@@ -34,6 +34,7 @@ contract V3UtilsIntegrationTest is IntegrationTestBase {
             0,
             0,
             TEST_NFT_ACCOUNT,
+            TEST_NFT_ACCOUNT,
             false,
             "",
             ""
@@ -88,15 +89,16 @@ contract V3UtilsIntegrationTest is IntegrationTestBase {
             0,
             0,
             "",
-            0,
-            0,
+            type(uint128).max, // take all fees
+            type(uint128).max, // take all fees
             100, // change fee as well
             MIN_TICK_100,
             -MIN_TICK_100,
             liquidityBefore, // take all liquidity
-            type(uint128).max, // take all fees
-            type(uint128).max, // take all fees
+            0,
+            0,
             block.timestamp,
+            TEST_NFT_ACCOUNT,
             TEST_NFT_ACCOUNT,
             false,
             "",
@@ -139,6 +141,7 @@ contract V3UtilsIntegrationTest is IntegrationTestBase {
             0,
             0,
             block.timestamp,
+            TEST_NFT_3_ACCOUNT,
             TEST_NFT_3_ACCOUNT,
             false,
             "",
@@ -193,6 +196,7 @@ contract V3UtilsIntegrationTest is IntegrationTestBase {
             0,
             0,
             block.timestamp,
+            TEST_NFT_3_ACCOUNT,
             TEST_NFT_3_ACCOUNT,
             false,
             "",
@@ -254,6 +258,7 @@ contract V3UtilsIntegrationTest is IntegrationTestBase {
             0,
             block.timestamp,
             TEST_NFT_ACCOUNT,
+            TEST_NFT_ACCOUNT,
             false,
             "",
             ""
@@ -313,6 +318,7 @@ contract V3UtilsIntegrationTest is IntegrationTestBase {
             0,
             0,
             block.timestamp,
+            TEST_NFT_ACCOUNT,
             TEST_NFT_ACCOUNT,
             false,
             "",

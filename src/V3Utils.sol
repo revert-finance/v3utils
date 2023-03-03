@@ -104,8 +104,11 @@ contract V3Utils is IERC721Receiver {
         // for all uniswap deadlineable functions
         uint256 deadline;
 
-        // left over tokens will be sent to this address (the sent / newly created NFT will ALWAYS be returned to from)
+        // left over tokens will be sent to this address
         address recipient;
+
+        // recipient of newly minted nft (the incoming NFT will ALWAYS be returned to from)
+        address recipientNFT;
 
         // if tokenIn or tokenOut is WETH - unwrap
         bool unwrap;
@@ -161,15 +164,15 @@ contract V3Utils is IERC721Receiver {
                 if (amount1 < instructions.amountIn1) {
                     revert AmountError();
                 }
-                (liquidity, amount0, amount1) = _swapAndIncrease(SwapAndIncreaseLiquidityParams(tokenId, amount0, amount1, instructions.recipient, instructions.deadline, IERC20(token1), instructions.amountIn1, instructions.amountOut1Min, instructions.swapData1, 0, 0, "", 0, 0), IERC20(token0), IERC20(token1), instructions.unwrap);
+                (liquidity, amount0, amount1) = _swapAndIncrease(SwapAndIncreaseLiquidityParams(tokenId, amount0, amount1, instructions.recipient, instructions.deadline, IERC20(token1), instructions.amountIn1, instructions.amountOut1Min, instructions.swapData1, 0, 0, "", instructions.amountAddMin0, instructions.amountAddMin1), IERC20(token0), IERC20(token1), instructions.unwrap);
             } else if (instructions.targetToken == token1) {
                 if (amount0 < instructions.amountIn0) {
                     revert AmountError();
                 }
-                (liquidity, amount0, amount1) = _swapAndIncrease(SwapAndIncreaseLiquidityParams(tokenId, amount0, amount1, instructions.recipient, instructions.deadline, IERC20(token0), 0, 0, "", instructions.amountIn0, instructions.amountOut0Min, instructions.swapData0, 0, 0), IERC20(token0), IERC20(token1), instructions.unwrap);
+                (liquidity, amount0, amount1) = _swapAndIncrease(SwapAndIncreaseLiquidityParams(tokenId, amount0, amount1, instructions.recipient, instructions.deadline, IERC20(token0), 0, 0, "", instructions.amountIn0, instructions.amountOut0Min, instructions.swapData0, instructions.amountAddMin0, instructions.amountAddMin1), IERC20(token0), IERC20(token1), instructions.unwrap);
             } else {
                 // no swap is done here
-                (liquidity,amount0, amount1) = _swapAndIncrease(SwapAndIncreaseLiquidityParams(tokenId, amount0, amount1, instructions.recipient, instructions.deadline, IERC20(address(0)), 0, 0, "", 0, 0, "", 0, 0), IERC20(token0), IERC20(token1), instructions.unwrap);
+                (liquidity,amount0, amount1) = _swapAndIncrease(SwapAndIncreaseLiquidityParams(tokenId, amount0, amount1, instructions.recipient, instructions.deadline, IERC20(address(0)), 0, 0, "", 0, 0, "", instructions.amountAddMin0, instructions.amountAddMin1), IERC20(token0), IERC20(token1), instructions.unwrap);
             }
             emit CompoundFees(tokenId, liquidity, amount0, amount1);            
         } else if (instructions.whatToDo == WhatToDo.CHANGE_RANGE) {
@@ -180,15 +183,15 @@ contract V3Utils is IERC721Receiver {
                 if (amount1 < instructions.amountIn1) {
                     revert AmountError();
                 }
-                (newTokenId,,,) = _swapAndMint(SwapAndMintParams(IERC20(token0), IERC20(token1), instructions.fee, instructions.tickLower, instructions.tickUpper, amount0, amount1, instructions.recipient, from, instructions.deadline, IERC20(token1), instructions.amountIn1, instructions.amountOut1Min, instructions.swapData1, 0, 0, "", 0, 0, instructions.swapAndMintReturnData), instructions.unwrap);
+                (newTokenId,,,) = _swapAndMint(SwapAndMintParams(IERC20(token0), IERC20(token1), instructions.fee, instructions.tickLower, instructions.tickUpper, amount0, amount1, instructions.recipient, from, instructions.deadline, IERC20(token1), instructions.amountIn1, instructions.amountOut1Min, instructions.swapData1, 0, 0, "", instructions.amountAddMin0, instructions.amountAddMin1, instructions.swapAndMintReturnData), instructions.unwrap);
             } else if (instructions.targetToken == token1) {
                 if (amount0 < instructions.amountIn0) {
                     revert AmountError();
                 }
-                (newTokenId,,,) = _swapAndMint(SwapAndMintParams(IERC20(token0), IERC20(token1), instructions.fee, instructions.tickLower, instructions.tickUpper, amount0, amount1, instructions.recipient, from, instructions.deadline, IERC20(token0), 0, 0, "", instructions.amountIn0, instructions.amountOut0Min, instructions.swapData0, 0, 0, instructions.swapAndMintReturnData), instructions.unwrap);
+                (newTokenId,,,) = _swapAndMint(SwapAndMintParams(IERC20(token0), IERC20(token1), instructions.fee, instructions.tickLower, instructions.tickUpper, amount0, amount1, instructions.recipient, from, instructions.deadline, IERC20(token0), 0, 0, "", instructions.amountIn0, instructions.amountOut0Min, instructions.swapData0, instructions.amountAddMin0, instructions.amountAddMin1, instructions.swapAndMintReturnData), instructions.unwrap);
             } else {
                 // no swap is done here
-                (newTokenId,,,) = _swapAndMint(SwapAndMintParams(IERC20(token0), IERC20(token1), instructions.fee, instructions.tickLower, instructions.tickUpper, amount0, amount1, instructions.recipient, from, instructions.deadline, IERC20(token0), 0, 0, "", 0, 0, "", 0, 0, instructions.swapAndMintReturnData), instructions.unwrap);
+                (newTokenId,,,) = _swapAndMint(SwapAndMintParams(IERC20(token0), IERC20(token1), instructions.fee, instructions.tickLower, instructions.tickUpper, amount0, amount1, instructions.recipient, from, instructions.deadline, IERC20(address(0)), 0, 0, "", 0, 0, "", instructions.amountAddMin0, instructions.amountAddMin1, instructions.swapAndMintReturnData), instructions.unwrap);
             }
 
             emit ChangeRange(tokenId, newTokenId);
@@ -499,10 +502,12 @@ contract V3Utils is IERC721Receiver {
         }
 
         if (total0 != 0) {
-            params.token0.approve(address(nonfungiblePositionManager), total0);
+            SafeERC20.safeApprove(params.token0, address(nonfungiblePositionManager), 0);
+            SafeERC20.safeApprove(params.token0, address(nonfungiblePositionManager), total0);
         }
         if (total1 != 0) {
-            params.token1.approve(address(nonfungiblePositionManager), total1);
+            SafeERC20.safeApprove(params.token1, address(nonfungiblePositionManager), 0);
+            SafeERC20.safeApprove(params.token1, address(nonfungiblePositionManager), total1);
         }
     }
 
@@ -546,13 +551,16 @@ contract V3Utils is IERC721Receiver {
             (address allowanceTarget, bytes memory data) = abi.decode(swapData, (address, bytes));
 
             // approve needed amount
-            tokenIn.approve(allowanceTarget, amountIn);
+            SafeERC20.safeApprove(tokenIn, allowanceTarget, amountIn);
 
             // execute swap
             (bool success,) = swapRouter.call(data);
             if (!success) {
                 revert SwapFailed();
             }
+
+            // reset approval
+            SafeERC20.safeApprove(tokenIn, allowanceTarget, 0);
 
             uint256 balanceInAfter = tokenIn.balanceOf(address(this));
             uint256 balanceOutAfter = tokenOut.balanceOf(address(this));
