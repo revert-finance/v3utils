@@ -20,6 +20,8 @@ contract V3UtilsIntegrationTest is IntegrationTestBase {
             address(0),
             0,
             0,
+            0,
+            0,
             "",
             0,
             0,
@@ -83,6 +85,54 @@ contract V3UtilsIntegrationTest is IntegrationTestBase {
             address(USDC),
             1000000000000000001,
             400000,
+            1000000000000000001,
+            400000,
+            _get05DAIToUSDCSwapData(),
+            0,
+            0,
+            "",
+            type(uint128).max, // take all fees
+            type(uint128).max, // take all fees
+            100, // change fee as well
+            MIN_TICK_100,
+            -MIN_TICK_100,
+            liquidityBefore, // take all liquidity
+            0,
+            0,
+            block.timestamp,
+            TEST_NFT_ACCOUNT,
+            TEST_NFT_ACCOUNT,
+            false,
+            "",
+            ""
+        );
+
+        vm.prank(TEST_NFT_ACCOUNT);
+        vm.expectRevert("Price slippage check");
+        NPM.safeTransferFrom(
+            TEST_NFT_ACCOUNT,
+            address(v3utils),
+            TEST_NFT,
+            abi.encode(inst)
+        );
+    }
+
+    function testTransferAmountError() external {
+        // add liquidity to existing (empty) position (add 1 DAI / 0 USDC)
+        _increaseLiquidity();
+
+        (, , , , , , , uint128 liquidityBefore, , , , ) = NPM.positions(
+            TEST_NFT
+        );
+
+        // swap a bit more dai than available - fails with slippage error because not enough liquidity + fees is collected
+        V3Utils.Instructions memory inst = V3Utils.Instructions(
+            V3Utils.WhatToDo.CHANGE_RANGE,
+            address(USDC),
+            0,
+            0,
+            1000000000000000001,
+            400000,
             _get05DAIToUSDCSwapData(),
             0,
             0,
@@ -127,6 +177,8 @@ contract V3UtilsIntegrationTest is IntegrationTestBase {
         V3Utils.Instructions memory inst = V3Utils.Instructions(
             V3Utils.WhatToDo.CHANGE_RANGE,
             address(USDC),
+            0,
+            0,
             500000000000000000,
             400000,
             _get05DAIToUSDCSwapData(),
@@ -170,6 +222,8 @@ contract V3UtilsIntegrationTest is IntegrationTestBase {
         V3Utils.Instructions memory inst = V3Utils.Instructions(
             V3Utils.WhatToDo.COMPOUND_FEES,
             address(0),
+            0,
+            0,
             0,
             0,
             "",
@@ -225,6 +279,8 @@ contract V3UtilsIntegrationTest is IntegrationTestBase {
         V3Utils.Instructions memory inst = V3Utils.Instructions(
             V3Utils.WhatToDo.COMPOUND_FEES,
             address(USDC),
+            0,
+            0,
             500000000000000000,
             400000,
             _get05DAIToUSDCSwapData(),
@@ -286,6 +342,8 @@ contract V3UtilsIntegrationTest is IntegrationTestBase {
         V3Utils.Instructions memory inst = V3Utils.Instructions(
             V3Utils.WhatToDo.WITHDRAW_AND_COLLECT_AND_SWAP,
             address(USDC),
+            0,
+            0,
             990099009900989844, // uniswap returns 1 less when getting liquidity - this must be traded
             900000,
             _get1DAIToUSDSwapData(),
@@ -347,6 +405,8 @@ contract V3UtilsIntegrationTest is IntegrationTestBase {
         V3Utils.Instructions memory inst = V3Utils.Instructions(
             V3Utils.WhatToDo.WITHDRAW_AND_COLLECT_AND_SWAP,
             address(USDC),
+            0,
+            0,
             990099009900989844, // uniswap returns 1 less when getting liquidity - this must be traded
             900000,
             _get1DAIToUSDSwapData(),

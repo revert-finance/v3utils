@@ -73,6 +73,10 @@ contract V3Utils is IERC721Receiver {
         // target token for swaps (if this is address(0) no swaps are executed)
         address targetToken;
 
+        // for removing liquidity slippage
+        uint256 amountRemoveMin0;
+        uint256 amountRemoveMin1;
+
         // amountIn0 is used for swap and also as minAmount0 for decreased liquidity + collected fees
         uint256 amountIn0;
         // if token0 needs to be swapped to targetToken - set values
@@ -155,11 +159,11 @@ contract V3Utils is IERC721Receiver {
         uint256 amount0;
         uint256 amount1;
         if (instructions.liquidity != 0) {
-            (amount0, amount1) = _decreaseLiquidity(tokenId, instructions.liquidity, instructions.deadline, 0, 0); // slippage check is done after collecting
+            (amount0, amount1) = _decreaseLiquidity(tokenId, instructions.liquidity, instructions.deadline, instructions.amountRemoveMin0, instructions.amountRemoveMin1);
         }
         (amount0, amount1) = _collectFees(tokenId, IERC20(token0), IERC20(token1), instructions.feeAmount0 == type(uint128).max ? type(uint128).max : (amount0 + instructions.feeAmount0).toUint128(), instructions.feeAmount1 == type(uint128).max ? type(uint128).max : (amount1 + instructions.feeAmount1).toUint128());
         
-        // do slippage check after liquidity AND fees have been collected
+        // check if enough tokens are available for swaps
         if (amount0 < instructions.amountIn0 || amount1 < instructions.amountIn1) {
             revert AmountError();
         }
