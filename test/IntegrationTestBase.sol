@@ -24,7 +24,7 @@ abstract contract IntegrationTestBase is Test {
     INonfungiblePositionManager constant NPM = INonfungiblePositionManager(0xC36442b4a4522E871399CD717aBDD847Ab11FE88);
 
     address EX0x = 0xDef1C0ded9bec7F1a1670819833240f027b25EfF; // 0x exchange proxy
-
+    address UNISWAP_ROUTER = 0xE592427A0AEce92De3Edee1F18E0157C05861564; // uniswap router 1.0
 
     // DAI/USDC 0.05% - one sided only DAI - current tick is near -276326 - no liquidity (-276320/-276310)
     uint256 constant TEST_NFT = 24181;
