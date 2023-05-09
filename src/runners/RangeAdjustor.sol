@@ -1,0 +1,239 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+import "./Runner.sol";
+
+
+/// @title RangeAdjustor
+/// @notice Allows operator of RangeAdjustor contract (Revert controlled bot) to change range for configured positions
+/// Positions need to be approved for all NFTs for the contract and configured with setConfig method
+contract RangeAdjustor is Runner {
+
+    // user events
+    event RangeChanged(uint256 indexed oldTokenId, uint256 indexed newTokenId);
+    event PositionConfigured(
+        uint256 indexed tokenId,
+        int32 lowerTickLimit,
+        int32 upperTickLimit,
+        int32 lowerTickDelta,
+        int32 upperTickDelta,
+        uint64 token0SlippageX64,
+        uint64 token1SlippageX64
+    );
+
+    // errors 
+    error WrongContract();
+    error AdjustStateError();
+    error NotConfigured();
+    error NotReady();
+    error SameRange();
+    error NotSupportedFeeTier();
+
+    constructor(INonfungiblePositionManager _npm, address _swapRouter, address _operator, uint32 _TWAPSeconds, uint16 _maxTWAPTickDifference) Runner(_npm, _swapRouter, _operator, _TWAPSeconds, _maxTWAPTickDifference) {
+    }
+
+    // defines when and how a position can be changed by operator
+    // when a position is adjusted config for the position is cleared and copied to the newly created position
+    struct PositionConfig {
+        // needs more than int24 because it can be [-type(uint24).max,type(uint24).max]
+        int32 lowerTickLimit; // if negative also in-range positions may be adjusted
+        int32 upperTickLimit; // if negative also in-range positions may be adjusted
+        int32 lowerTickDelta; // this amount is added to current tick (floored to tickspacing) to define lowerTick of new position
+        int32 upperTickDelta; // this amount is added to current tick (floored to tickspacing) to define upperTick of new position
+        uint64 token0SlippageX64; // max price difference from current pool price for swap / Q64 for token0
+        uint64 token1SlippageX64; // max price difference from current pool price for swap / Q64 for token1
+    }
+
+    // configured tokens
+    mapping (uint256 => PositionConfig) public positionConfigs;
+
+    /// @notice params for execute()
+    struct ExecuteParams {
+        uint256 tokenId;
+        bool swap0To1;
+        uint256 amountIn; // if this is set to 0 no swap happens
+        bytes swapData;
+        uint256 deadline; // for uniswap operations - operator promises fair value
+    }
+
+    struct ExecuteState {
+        address owner;
+        address currentOwner;
+        IUniswapV3Pool pool;
+        address token0;
+        address token1;
+        uint24 fee;
+        int24 tickLower;
+        int24 tickUpper;
+        int24 currentTick;
+
+        uint256 amount0;
+        uint256 amount1;
+
+        uint128 liquidity;
+
+        uint256 protocolReward0;
+        uint256 protocolReward1;
+        uint256 amountOutMin;
+        uint256 amountInDelta;
+        uint256 amountOutDelta;
+
+        uint256 balance0;
+        uint256 balance1;
+        uint256 newTokenId;
+    }
+
+    /**
+     * @notice Adjust token (must be in correct state)
+     * Can only be called only from configured operator account
+     * Swap needs to be done with max price difference from current pool price - otherwise reverts
+     */
+    function execute(ExecuteParams memory params) external {
+
+        if (msg.sender != operator) {
+            revert Unauthorized();
+        }
+
+        ExecuteState memory state;
+        PositionConfig storage config = positionConfigs[params.tokenId];
+
+        if (config.lowerTickDelta == config.upperTickDelta) {
+            revert NotConfigured();
+        }
+
+          // get position info
+        (,, state.token0, state.token1, state.fee, state.tickLower, state.tickUpper, state.liquidity, , , , ) =  nonfungiblePositionManager.positions(params.tokenId);
+
+        (state.amount0, state.amount1) = _decreaseFullLiquidityAndCollect(params.tokenId, state.liquidity, params.deadline);
+
+        // get pool info
+        state.pool = _getPool(state.token0, state.token1, state.fee);
+
+        // check oracle for swap
+        (state.amountOutMin,state.currentTick,,) = _validateSwap(params.swap0To1, params.amountIn, state.pool, TWAPSeconds, maxTWAPTickDifference, params.swap0To1 ? config.token0SlippageX64 : config.token1SlippageX64);
+
+        if (state.currentTick < state.tickLower - config.lowerTickLimit || state.currentTick >= state.tickUpper + config.upperTickLimit) {
+
+            (state.amountInDelta, state.amountOutDelta) = _swap(swapRouter, params.swap0To1 ? IERC20(state.token0) : IERC20(state.token1), params.swap0To1 ? IERC20(state.token1) : IERC20(state.token0), params.amountIn, state.amountOutMin, params.swapData);
+
+            state.amount0 = params.swap0To1 ? state.amount0 - state.amountInDelta : state.amount0 + state.amountOutDelta;
+            state.amount1 = params.swap0To1 ? state.amount1 + state.amountOutDelta : state.amount1 - state.amountInDelta;
+
+            // protocol reward is removed from both token amounts and kept in contract for later retrieval
+            state.protocolReward0 = state.amount0 * protocolRewardX64 / Q64;
+            state.protocolReward1 = state.amount1 * protocolRewardX64 / Q64;
+
+            // approve npm 
+            SafeERC20.safeApprove(IERC20(state.token0), address(nonfungiblePositionManager), state.amount0 - state.protocolReward0);
+            SafeERC20.safeApprove(IERC20(state.token1), address(nonfungiblePositionManager), state.amount1 - state.protocolReward1);
+
+            int24 tickSpacing = _getTickSpacing(state.fee);
+            int24 baseTick = state.currentTick - (((state.currentTick % tickSpacing) + tickSpacing) % tickSpacing);
+
+            // check if new range same as old range
+            if (baseTick + config.lowerTickDelta == state.tickLower && baseTick + config.upperTickDelta == state.tickUpper) {
+                revert SameRange();
+            }
+
+            INonfungiblePositionManager.MintParams memory mintParams = 
+                INonfungiblePositionManager.MintParams(
+                    address(state.token0), 
+                    address(state.token1), 
+                    state.fee, 
+                    SafeCast.toInt24(baseTick + config.lowerTickDelta), // reverts if out of valid range
+                    SafeCast.toInt24(baseTick + config.upperTickDelta), // reverts if out of valid range
+                    state.amount0 - state.protocolReward0,
+                    state.amount1 - state.protocolReward1, 
+                    0,
+                    0,
+                    address(this), // is sent to real recipient aftwards
+                    params.deadline
+                );
+
+            // mint is done to address(this) first - its not a safemint
+            (state.newTokenId,,state.balance0,state.balance1) = nonfungiblePositionManager.mint(mintParams);
+
+            SafeERC20.safeApprove(IERC20(state.token0), address(nonfungiblePositionManager), 0);
+            SafeERC20.safeApprove(IERC20(state.token1), address(nonfungiblePositionManager), 0);
+            
+            state.owner = nonfungiblePositionManager.ownerOf(params.tokenId);
+
+            // send it to current owner
+            nonfungiblePositionManager.safeTransferFrom(address(this), state.owner, state.newTokenId);
+
+            // send leftover to owner
+            if (state.amount0 - state.protocolReward0 - state.balance0 > 0) {
+                _transferToken(state.owner, IERC20(state.token0), state.amount0 - state.protocolReward0 - state.balance0, true);
+            }
+            if (state.amount1 - state.protocolReward1 - state.balance1 > 0) {
+                _transferToken(state.owner, IERC20(state.token1), state.amount1 - state.protocolReward1 - state.balance1, true);
+            }
+
+            // copy token config for new token
+            positionConfigs[state.newTokenId] = config;
+            emit PositionConfigured(
+                state.newTokenId,
+                config.lowerTickLimit,
+                config.upperTickLimit,
+                config.lowerTickDelta,
+                config.upperTickDelta,
+                config.token0SlippageX64,
+                config.token1SlippageX64
+            );
+
+            // delete config for old position
+            delete positionConfigs[params.tokenId];
+            emit PositionConfigured(params.tokenId, 0, 0, 0, 0, 0, 0);
+
+            emit RangeChanged(params.tokenId, state.newTokenId);
+
+        } else {
+            revert NotReady();
+        }
+    }
+
+    // function to configure a token to be used with this runner
+    // it needs to have approvals set for this contract beforehand
+    function configToken(uint256 tokenId, PositionConfig memory config) external {
+        address owner = nonfungiblePositionManager.ownerOf(tokenId);
+        if (owner != msg.sender) {
+            revert Unauthorized();
+        }
+      
+        (,,address token0, address token1, uint24 fee, int24 tickLower, int24 tickUpper,,,,,) = nonfungiblePositionManager.positions(tokenId);
+
+         // lower tick must be always below or equal to upper tick - if they are equal - range adjustment is deactivated
+        if (config.lowerTickDelta > config.upperTickDelta) {
+            revert InvalidConfig();
+        }
+
+        positionConfigs[tokenId] = config;
+
+        emit PositionConfigured(
+            tokenId,
+            config.lowerTickLimit,
+            config.upperTickLimit,
+            config.lowerTickDelta,
+            config.upperTickDelta,
+            config.token0SlippageX64,
+            config.token1SlippageX64
+        );
+    }
+
+    // get tick spacing for fee tier (cached when possible)
+    function _getTickSpacing(uint24 fee) internal view returns (int24) {
+        if (fee == 10000) {
+            return 200;
+        } else if (fee == 3000) {
+            return 60;
+        } else if (fee == 500) {
+            return 10;
+        } else {
+            int24 spacing = factory.feeAmountTickSpacing(fee);
+            if (spacing <= 0) {
+                revert NotSupportedFeeTier();
+            }
+            return spacing;
+        }
+    }
+}
