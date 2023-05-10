@@ -6,7 +6,7 @@ import "./Runner.sol";
 
 /// @title RangeAdjustor
 /// @notice Allows operator of RangeAdjustor contract (Revert controlled bot) to change range for configured positions
-/// Positions need to be approved for all NFTs for the contract and configured with setConfig method
+/// Positions need to be approved for all NFTs for the contract and configured with configToken method
 contract RangeAdjustor is Runner {
 
     // user events
@@ -114,7 +114,7 @@ contract RangeAdjustor is Runner {
 
         if (state.currentTick < state.tickLower - config.lowerTickLimit || state.currentTick >= state.tickUpper + config.upperTickLimit) {
 
-            (state.amountInDelta, state.amountOutDelta) = _swap(swapRouter, params.swap0To1 ? IERC20(state.token0) : IERC20(state.token1), params.swap0To1 ? IERC20(state.token1) : IERC20(state.token0), params.amountIn, state.amountOutMin, params.swapData);
+            (state.amountInDelta, state.amountOutDelta) = _swap(params.swap0To1 ? IERC20(state.token0) : IERC20(state.token1), params.swap0To1 ? IERC20(state.token1) : IERC20(state.token0), params.amountIn, state.amountOutMin, params.swapData);
 
             state.amount0 = params.swap0To1 ? state.amount0 - state.amountInDelta : state.amount0 + state.amountOutDelta;
             state.amount1 = params.swap0To1 ? state.amount1 + state.amountOutDelta : state.amount1 - state.amountInDelta;
@@ -199,8 +199,6 @@ contract RangeAdjustor is Runner {
         if (owner != msg.sender) {
             revert Unauthorized();
         }
-      
-        (,,address token0, address token1, uint24 fee, int24 tickLower, int24 tickUpper,,,,,) = nonfungiblePositionManager.positions(tokenId);
 
          // lower tick must be always below or equal to upper tick - if they are equal - range adjustment is deactivated
         if (config.lowerTickDelta > config.upperTickDelta) {

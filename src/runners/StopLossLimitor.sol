@@ -6,7 +6,7 @@ import "./Runner.sol";
 /// @title StopLossLimitor
 /// @notice Lets a v3 position to be automatically removed or swapped to the opposite token when it reaches a certain tick. 
 /// A revert controlled bot is responsible for the execution of optimized swaps (using external swap router)
-/// Positions need to approved for all NFTs for the contract and configured with addToken method
+/// Positions need to approved for all NFTs for the contract and configured with configToken method
 contract StopLossLimitor is Runner {
 
     error NotFound();
@@ -50,8 +50,8 @@ contract StopLossLimitor is Runner {
         bool token1Swap;
 
         // max price difference from current pool price for swap / Q64
-        uint64 token0SlippageX64;
-        uint64 token1SlippageX64;
+        uint64 token0SlippageX64; // when token 0 is swapped to token 1
+        uint64 token1SlippageX64; // when token 1 is swapped to token 0
 
         // when should action be triggered (when this tick is reached - allow execute)
         int24 token0TriggerTick;
@@ -141,7 +141,7 @@ contract StopLossLimitor is Runner {
             // checks if price in valid oracle range and calculates amountOutMin
             (state.amountOutMin,,,) = _validateSwap(!state.isAbove, state.swapAmount, state.pool, TWAPSeconds, maxTWAPTickDifference, state.isAbove ? config.token1SlippageX64 : config.token0SlippageX64);
 
-            (state.amountInDelta, state.amountOutDelta) = _swap(swapRouter, state.isAbove ? IERC20(state.token1) : IERC20(state.token0), state.isAbove ? IERC20(state.token0) : IERC20(state.token1), state.swapAmount, state.amountOutMin, params.swapData);
+            (state.amountInDelta, state.amountOutDelta) = _swap(state.isAbove ? IERC20(state.token1) : IERC20(state.token0), state.isAbove ? IERC20(state.token0) : IERC20(state.token1), state.swapAmount, state.amountOutMin, params.swapData);
 
             state.amount0 = state.isAbove ? state.amount0 + state.amountOutDelta : state.amount0 - state.amountInDelta;
             state.amount1 = state.isAbove ? state.amount1 - state.amountInDelta : state.amount1 + state.amountOutDelta;
@@ -172,8 +172,6 @@ contract StopLossLimitor is Runner {
         if (owner != msg.sender) {
             revert Unauthorized();
         }
-
-        (,,address token0, address token1, uint24 fee, int24 tickLower, int24 tickUpper,,,,,) = nonfungiblePositionManager.positions(tokenId);
 
         if (config.isActive) {
             // trigger ticks have to be on the correct side of position range

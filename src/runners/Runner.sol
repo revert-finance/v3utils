@@ -111,22 +111,7 @@ abstract contract Runner is Ownable {
         }
     }
 
-    /**
-     * @notice Owner controlled function to increase TWAPSeconds / decrease maxTWAPTickDifference
-     */
-    function setTWAPConfig(uint32 _TWAPSeconds, uint16 _maxTWAPTickDifference) external onlyOwner {
-        if (_TWAPSeconds < TWAPSeconds) {
-            revert InvalidConfig();
-        }
-        if (_maxTWAPTickDifference > maxTWAPTickDifference) {
-            revert InvalidConfig();
-        }
-        emit TWAPConfigChanged(_TWAPSeconds, _maxTWAPTickDifference);
-        TWAPSeconds = _TWAPSeconds;
-        maxTWAPTickDifference = _maxTWAPTickDifference;
-    }
-
-        // validate if swap can be done with specified oracle parameters - if not possible reverts
+    // validate if swap can be done with specified oracle parameters - if not possible reverts
     // if possible returns minAmountOut
     function _validateSwap(bool swap0For1, uint256 amountIn, IUniswapV3Pool pool, uint32 twapPeriod, uint16 maxTickDifference, uint64 maxPriceDifferenceX64) internal view returns (uint256 amountOutMin, int24 currentTick, uint160 sqrtPriceX96, uint256 priceX96) {
         
@@ -151,7 +136,7 @@ abstract contract Runner is Ownable {
     // does price difference check with amountOutMin param (calculated based on oracle verified price)
     // NOTE: can be only called from (partially) trusted context (nft owner / contract owner / operator) because otherwise swapData can be manipulated to return always amountOutMin
     // returns new token amounts after swap
-    function _swap(address swapRouter, IERC20 tokenIn, IERC20 tokenOut, uint256 amountIn, uint256 amountOutMin, bytes memory swapData) internal returns (uint256 amountInDelta, uint256 amountOutDelta) {
+    function _swap(IERC20 tokenIn, IERC20 tokenOut, uint256 amountIn, uint256 amountOutMin, bytes memory swapData) internal returns (uint256 amountInDelta, uint256 amountOutDelta) {
         if (amountIn > 0 && swapData.length > 0) {
             uint256 balanceInBefore = tokenIn.balanceOf(address(this));
             uint256 balanceOutBefore = tokenOut.balanceOf(address(this));
@@ -224,7 +209,7 @@ abstract contract Runner is Ownable {
             );
     }
 
-    function _getMinAmountOut(uint256 amountIn, uint256 priceX96, uint64 maxSlippageX64, bool swap0To1) internal returns (uint256) {
+    function _getMinAmountOut(uint256 amountIn, uint256 priceX96, uint64 maxSlippageX64, bool swap0To1) internal pure returns (uint256) {
         return FullMath.mulDiv(
                 Q64 - maxSlippageX64,
                 swap0To1
