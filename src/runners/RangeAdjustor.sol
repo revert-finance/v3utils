@@ -3,14 +3,22 @@ pragma solidity ^0.8.0;
 
 import "./Runner.sol";
 
-
 /// @title RangeAdjustor
 /// @notice Allows operator of RangeAdjustor contract (Revert controlled bot) to change range for configured positions
 /// Positions need to be approved for all NFTs for the contract and configured with configToken method
 contract RangeAdjustor is Runner {
 
-    // user events
-    event RangeChanged(uint256 indexed oldTokenId, uint256 indexed newTokenId);
+    error WrongContract();
+    error AdjustStateError();
+    error NotConfigured();
+    error NotReady();
+    error SameRange();
+    error NotSupportedFeeTier();
+
+    event RangeChanged(
+        uint256 indexed oldTokenId, 
+        uint256 indexed newTokenId
+    );
     event PositionConfigured(
         uint256 indexed tokenId,
         int32 lowerTickLimit,
@@ -20,14 +28,6 @@ contract RangeAdjustor is Runner {
         uint64 token0SlippageX64,
         uint64 token1SlippageX64
     );
-
-    // errors 
-    error WrongContract();
-    error AdjustStateError();
-    error NotConfigured();
-    error NotReady();
-    error SameRange();
-    error NotSupportedFeeTier();
 
     constructor(INonfungiblePositionManager _npm, address _swapRouter, address _operator, uint32 _TWAPSeconds, uint16 _maxTWAPTickDifference) Runner(_npm, _swapRouter, _operator, _TWAPSeconds, _maxTWAPTickDifference) {
     }
@@ -123,10 +123,6 @@ contract RangeAdjustor is Runner {
             state.protocolReward0 = state.amount0 * protocolRewardX64 / Q64;
             state.protocolReward1 = state.amount1 * protocolRewardX64 / Q64;
 
-            // approve npm 
-            SafeERC20.safeApprove(IERC20(state.token0), address(nonfungiblePositionManager), state.amount0 - state.protocolReward0);
-            SafeERC20.safeApprove(IERC20(state.token1), address(nonfungiblePositionManager), state.amount1 - state.protocolReward1);
-
             int24 tickSpacing = _getTickSpacing(state.fee);
             int24 baseTick = state.currentTick - (((state.currentTick % tickSpacing) + tickSpacing) % tickSpacing);
 
@@ -150,9 +146,14 @@ contract RangeAdjustor is Runner {
                     params.deadline
                 );
 
+            // approve npm 
+            SafeERC20.safeApprove(IERC20(state.token0), address(nonfungiblePositionManager), state.amount0 - state.protocolReward0);
+            SafeERC20.safeApprove(IERC20(state.token1), address(nonfungiblePositionManager), state.amount1 - state.protocolReward1);
+
             // mint is done to address(this) first - its not a safemint
             (state.newTokenId,,state.balance0,state.balance1) = nonfungiblePositionManager.mint(mintParams);
 
+            // remove remaining approval
             SafeERC20.safeApprove(IERC20(state.token0), address(nonfungiblePositionManager), 0);
             SafeERC20.safeApprove(IERC20(state.token1), address(nonfungiblePositionManager), 0);
             

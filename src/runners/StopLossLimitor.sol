@@ -5,7 +5,7 @@ import "./Runner.sol";
 
 /// @title StopLossLimitor
 /// @notice Lets a v3 position to be automatically removed or swapped to the opposite token when it reaches a certain tick. 
-/// A revert controlled bot is responsible for the execution of optimized swaps (using external swap router)
+/// A revert controlled bot (operator) is responsible for the execution of optimized swaps (using external swap router)
 /// Positions need to approved for all NFTs for the contract and configured with configToken method
 contract StopLossLimitor is Runner {
 
@@ -40,6 +40,7 @@ contract StopLossLimitor is Runner {
     constructor(INonfungiblePositionManager _npm, address _swapRouter, address _operator, uint32 _TWAPSeconds, uint16 _maxTWAPTickDifference) Runner(_npm, _swapRouter, _operator, _TWAPSeconds, _maxTWAPTickDifference) {
     }
 
+    // define how stoploss / limit should be handled
     struct PositionConfig {
 
         // if position is active
@@ -58,8 +59,8 @@ contract StopLossLimitor is Runner {
         int24 token1TriggerTick;
     }
 
+    // configured tokens
     mapping (uint256 => PositionConfig) public positionConfigs;
-
 
     /// @notice params for execute()
     struct ExecuteParams {
