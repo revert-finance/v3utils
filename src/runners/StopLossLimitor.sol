@@ -6,7 +6,7 @@ import "./Runner.sol";
 /// @title StopLossLimitor
 /// @notice Lets a v3 position to be automatically removed or swapped to the opposite token when it reaches a certain tick. 
 /// A revert controlled bot (operator) is responsible for the execution of optimized swaps (using external swap router)
-/// Positions need to approved for all NFTs for the contract and configured with configToken method
+/// Positions need to be approved (approve or setApprovalForAll) for the contract and configured with configToken method
 contract StopLossLimitor is Runner {
 
     error NotFound();
@@ -42,21 +42,16 @@ contract StopLossLimitor is Runner {
 
     // define how stoploss / limit should be handled
     struct PositionConfig {
-
-        // if position is active
-        bool isActive;
-
+        bool isActive; // if position is active
         // should swap token to other token when triggered
         bool token0Swap;
         bool token1Swap;
-
         // max price difference from current pool price for swap / Q64
         uint64 token0SlippageX64; // when token 0 is swapped to token 1
         uint64 token1SlippageX64; // when token 1 is swapped to token 0
-
         // when should action be triggered (when this tick is reached - allow execute)
-        int24 token0TriggerTick;
-        int24 token1TriggerTick;
+        int24 token0TriggerTick; // when tick is below this one
+        int24 token1TriggerTick; // when tick is above this one
     }
 
     // configured tokens
@@ -161,6 +156,10 @@ contract StopLossLimitor is Runner {
         if (state.amount1 > 0) {
             _transferToken(state.owner, IERC20(state.token1), state.amount1, true);
         }
+
+        // delete config for position
+        delete positionConfigs[params.tokenId];
+        emit PositionConfigured(params.tokenId, false, false, false, 0, 0, 0, 0);
 
         // log event
         emit Executed(msg.sender, state.isSwap, params.tokenId, state.amount0, state.amount1, state.token0, state.token1);

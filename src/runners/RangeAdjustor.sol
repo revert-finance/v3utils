@@ -5,7 +5,7 @@ import "./Runner.sol";
 
 /// @title RangeAdjustor
 /// @notice Allows operator of RangeAdjustor contract (Revert controlled bot) to change range for configured positions
-/// Positions need to be approved for all NFTs for the contract and configured with configToken method
+/// Positions need to be approved (setApprovalForAll) for the contract and configured with configToken method
 contract RangeAdjustor is Runner {
 
     error WrongContract();
@@ -36,8 +36,8 @@ contract RangeAdjustor is Runner {
     // when a position is adjusted config for the position is cleared and copied to the newly created position
     struct PositionConfig {
         // needs more than int24 because it can be [-type(uint24).max,type(uint24).max]
-        int32 lowerTickLimit; // if negative also in-range positions may be adjusted
-        int32 upperTickLimit; // if negative also in-range positions may be adjusted
+        int32 lowerTickLimit; // if negative also in-range positions may be adjusted / if 0 out of range positions may be adjusted
+        int32 upperTickLimit; // if negative also in-range positions may be adjusted / if 0 out of range positions may be adjusted
         int32 lowerTickDelta; // this amount is added to current tick (floored to tickspacing) to define lowerTick of new position
         int32 upperTickDelta; // this amount is added to current tick (floored to tickspacing) to define upperTick of new position
         uint64 token0SlippageX64; // max price difference from current pool price for swap / Q64 for token0

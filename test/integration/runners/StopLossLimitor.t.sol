@@ -105,9 +105,9 @@ contract StopLossLimitorTest is IntegrationTestBase {
 
         assertEq(balanceAfterOwner + balanceAfter - balanceBeforeOwner - balanceBefore + 1, amount0); // +1 because Uniswap imprecision (remove same liquidity returns 1 less)
 
-        // cant execute again - liquidity disapeard
+        // is not runnable anymore because configuration was removed
         vm.prank(OPERATOR_ACCOUNT);
-        vm.expectRevert(StopLossLimitor.NoLiquidity.selector);
+        vm.expectRevert(StopLossLimitor.NotConfigured.selector);
         stopLossLimitor.execute(StopLossLimitor.ExecuteParams(TEST_NFT, "", block.timestamp));
 
         // add new liquidity
@@ -273,9 +273,9 @@ contract StopLossLimitorTest is IntegrationTestBase {
         vm.prank(OPERATOR_ACCOUNT);
         stopLossLimitor.execute(StopLossLimitor.ExecuteParams(TEST_NFT_2, "", block.timestamp)); // max fee with 1% is 7124618988448545
 
-        // is not runnable anymore because no more liquidity
+        // is not runnable anymore because configuration was removed
         vm.prank(OPERATOR_ACCOUNT);
-        vm.expectRevert(StopLossLimitor.NoLiquidity.selector);
+        vm.expectRevert(StopLossLimitor.NotConfigured.selector);
         stopLossLimitor.execute(StopLossLimitor.ExecuteParams(TEST_NFT_2, "", block.timestamp));
 
         // fee stored for owner in contract
@@ -312,9 +312,9 @@ contract StopLossLimitorTest is IntegrationTestBase {
         vm.prank(OPERATOR_ACCOUNT);
         stopLossLimitor.execute(StopLossLimitor.ExecuteParams(TEST_NFT_2, _getWETHToDAISwapData(), block.timestamp));
 
-        // is not runnable anymore because no more liquidity
+        // is not runnable anymore because configuration was removed
         vm.prank(OPERATOR_ACCOUNT);
-        vm.expectRevert(StopLossLimitor.NoLiquidity.selector);
+        vm.expectRevert(StopLossLimitor.NotConfigured.selector);
         stopLossLimitor.execute(StopLossLimitor.ExecuteParams(TEST_NFT_2, _getWETHToDAISwapData(), block.timestamp));
 
         // fee stored for owner in contract
