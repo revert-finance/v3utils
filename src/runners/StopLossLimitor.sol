@@ -31,10 +31,10 @@ contract StopLossLimitor is Runner {
         bool isActive,
         bool token0Swap,
         bool token1Swap,
-        uint64 token0SlippageX64,
-        uint64 token1SlippageX64,
         int24 token0TriggerTick,
-        int24 token1TriggerTick
+        int24 token1TriggerTick,
+        uint64 token0SlippageX64,
+        uint64 token1SlippageX64
     );
 
     constructor(INonfungiblePositionManager _npm, address _swapRouter, address _operator, uint32 _TWAPSeconds, uint16 _maxTWAPTickDifference) Runner(_npm, _swapRouter, _operator, _TWAPSeconds, _maxTWAPTickDifference) {
@@ -46,12 +46,12 @@ contract StopLossLimitor is Runner {
         // should swap token to other token when triggered
         bool token0Swap;
         bool token1Swap;
-        // max price difference from current pool price for swap / Q64
-        uint64 token0SlippageX64; // when token 0 is swapped to token 1
-        uint64 token1SlippageX64; // when token 1 is swapped to token 0
         // when should action be triggered (when this tick is reached - allow execute)
         int24 token0TriggerTick; // when tick is below this one
         int24 token1TriggerTick; // when tick is above this one
+        // max price difference from current pool price for swap / Q64
+        uint64 token0SlippageX64; // when token 0 is swapped to token 1
+        uint64 token1SlippageX64; // when token 1 is swapped to token 0
     }
 
     // configured tokens
@@ -188,10 +188,10 @@ contract StopLossLimitor is Runner {
             config.isActive,
             config.token0Swap,
             config.token1Swap,
-            config.token0SlippageX64,
-            config.token1SlippageX64,
             config.token0TriggerTick,
-            config.token1TriggerTick
+            config.token1TriggerTick,
+            config.token0SlippageX64,
+            config.token1SlippageX64
         );
     }
 }

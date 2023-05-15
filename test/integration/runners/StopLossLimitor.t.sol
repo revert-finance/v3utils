@@ -28,10 +28,10 @@ contract StopLossLimitorTest is IntegrationTestBase {
                 isActive,
                 token0Swap,
                 token1Swap,
-                token0SlippageX64,
-                token1SlippageX64,
                 token0TriggerTick,
-                token1TriggerTick
+                token1TriggerTick,
+                token0SlippageX64,
+                token1SlippageX64
             );
 
         vm.prank(TEST_NFT_ACCOUNT);
@@ -182,14 +182,14 @@ contract StopLossLimitorTest is IntegrationTestBase {
     function testInvalidConfig() external {
         vm.expectRevert(Runner.InvalidConfig.selector);
         vm.prank(TEST_NFT_ACCOUNT);
-        stopLossLimitor.configToken(TEST_NFT, StopLossLimitor.PositionConfig(true, false, false,  0, 0, 800000, -800000));
+        stopLossLimitor.configToken(TEST_NFT, StopLossLimitor.PositionConfig(true, false, false,  800000, -800000, 0, 0));
     }
 
     function testValidSetConfig() external {
         vm.prank(TEST_NFT_ACCOUNT);
-        StopLossLimitor.PositionConfig memory configIn = StopLossLimitor.PositionConfig(true, false, false, 0, 0, -800000, 800000);
+        StopLossLimitor.PositionConfig memory configIn = StopLossLimitor.PositionConfig(true, false, false, -800000, 800000, 0, 0);
         stopLossLimitor.configToken(TEST_NFT, configIn);
-        (bool i1, bool i2, bool i3, uint64 i4, uint64 i5, int24 i6, int24 i7) = stopLossLimitor.positionConfigs(TEST_NFT);
+        (bool i1, bool i2, bool i3, int24 i4, int24 i5, uint64 i6, uint64 i7) = stopLossLimitor.positionConfigs(TEST_NFT);
         assertEq(abi.encode(configIn), abi.encode(StopLossLimitor.PositionConfig(i1, i2, i3, i4, i5, i6, i7)));
     }
 
@@ -202,7 +202,7 @@ contract StopLossLimitorTest is IntegrationTestBase {
     function testRunWithoutApprove() external {
         // out of range position
         vm.prank(TEST_NFT_2_ACCOUNT);
-        stopLossLimitor.configToken(TEST_NFT_2, StopLossLimitor.PositionConfig(true, false, false, 0, 0, -84121, -78240));
+        stopLossLimitor.configToken(TEST_NFT_2, StopLossLimitor.PositionConfig(true, false, false, -84121, -78240, 0, 0));
 
         // fails when sending NFT
         vm.expectRevert(abi.encodePacked("Not approved"));
@@ -226,7 +226,7 @@ contract StopLossLimitorTest is IntegrationTestBase {
         NPM.setApprovalForAll(address(stopLossLimitor), true);
 
         vm.prank(TEST_NFT_2_ACCOUNT);
-        stopLossLimitor.configToken(TEST_NFT_2_A, StopLossLimitor.PositionConfig(true, false, false, 0, 0, -276331, -276320));
+        stopLossLimitor.configToken(TEST_NFT_2_A, StopLossLimitor.PositionConfig(true, false, false, -276331, -276320, 0, 0));
 
         // in range position cant be run
         vm.expectRevert(StopLossLimitor.NotInCondition.selector);
@@ -243,7 +243,7 @@ contract StopLossLimitorTest is IntegrationTestBase {
         NPM.setApprovalForAll(address(stopLossLimitor), true);
 
         vm.prank(TEST_NFT_2_ACCOUNT);
-        stopLossLimitor.configToken(TEST_NFT_2, StopLossLimitor.PositionConfig(true, true, true, uint64(Q64 / 100), uint64(Q64 / 100), -84121, -78240));
+        stopLossLimitor.configToken(TEST_NFT_2, StopLossLimitor.PositionConfig(true, true, true, -84121, -78240, uint64(Q64 / 100), uint64(Q64 / 100)));
 
         // TWAPCheckFailed
         vm.prank(OPERATOR_ACCOUNT);
@@ -262,7 +262,7 @@ contract StopLossLimitorTest is IntegrationTestBase {
         NPM.setApprovalForAll(address(stopLossLimitor), true);
 
         vm.prank(TEST_NFT_2_ACCOUNT);
-        stopLossLimitor.configToken(TEST_NFT_2, StopLossLimitor.PositionConfig(true, false, false, uint64(Q64 / 100), uint64(Q64 / 100), -84121, -78240)); // 1% max slippage
+        stopLossLimitor.configToken(TEST_NFT_2, StopLossLimitor.PositionConfig(true, false, false, -84121, -78240, uint64(Q64 / 100), uint64(Q64 / 100))); // 1% max slippage
 
         uint contractWETHBalanceBefore = WETH_ERC20.balanceOf(address(stopLossLimitor));
         uint contractDAIBalanceBefore = DAI.balanceOf(address(stopLossLimitor));
@@ -296,7 +296,7 @@ contract StopLossLimitorTest is IntegrationTestBase {
         NPM.setApprovalForAll(address(stopLossLimitor), true);
 
         vm.prank(TEST_NFT_2_ACCOUNT);
-        stopLossLimitor.configToken(TEST_NFT_2, StopLossLimitor.PositionConfig(true, true, true, uint64(Q64 / 100), uint64(Q64 / 100), -84121, -78240)); // 1% max slippage
+        stopLossLimitor.configToken(TEST_NFT_2, StopLossLimitor.PositionConfig(true, true, true, -84121, -78240, uint64(Q64 / 100), uint64(Q64 / 100))); // 1% max slippage
 
         uint contractWETHBalanceBefore = WETH_ERC20.balanceOf(address(stopLossLimitor));
         uint contractDAIBalanceBefore = DAI.balanceOf(address(stopLossLimitor));
