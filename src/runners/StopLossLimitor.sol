@@ -48,7 +48,7 @@ contract StopLossLimitor is Runner {
         bool token1Swap;
         // when should action be triggered (when this tick is reached - allow execute)
         int24 token0TriggerTick; // when tick is below this one
-        int24 token1TriggerTick; // when tick is above this one
+        int24 token1TriggerTick; // when tick is equal or above this one
         // max price difference from current pool price for swap / Q64
         uint64 token0SlippageX64; // when token 0 is swapped to token 1
         uint64 token1SlippageX64; // when token 1 is swapped to token 0
@@ -116,7 +116,7 @@ contract StopLossLimitor is Runner {
         (,state.tick,,,,,) = state.pool.slot0();
 
         // not triggered
-        if (config.token0TriggerTick <= state.tick && state.tick <= config.token1TriggerTick) {
+        if (config.token0TriggerTick <= state.tick && state.tick < config.token1TriggerTick) {
             revert NotInCondition();
         }
     
@@ -176,7 +176,7 @@ contract StopLossLimitor is Runner {
         if (config.isActive) {
             // trigger ticks have to be on the correct side of position range
             (,,,,, int24 tickLower, int24 tickUpper,,,,,) = nonfungiblePositionManager.positions(tokenId);
-            if (tickLower <= config.token0TriggerTick || tickUpper > config.token1TriggerTick) {
+            if (tickLower < config.token0TriggerTick || tickUpper > config.token1TriggerTick) {
                 revert InvalidConfig();
             }
         }
