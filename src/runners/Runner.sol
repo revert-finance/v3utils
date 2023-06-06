@@ -34,7 +34,7 @@ abstract contract Runner is Ownable {
     // TODO do we want this to be fixed or decreasable?
     uint64 immutable public protocolRewardX64 = uint64(Q64 / 200); // 0.5%
 
-     // admin events
+    // admin events
     event OperatorChanged(address newOperator);
     event TWAPConfigChanged(uint32 TWAPSeconds, uint16 maxTWAPTickDifference);
     event SwapRouterChanged(address newSwapRouter);
@@ -70,6 +70,12 @@ abstract contract Runner is Ownable {
      * @param _swapRouter new swap router
      */
     function setSwapRouter(address _swapRouter) external onlyOwner {
+
+        // don't let this ever be possible - it would enable owner to steal all approved NFTs
+        if (swapRouter == address(nonfungiblePositionManager)) {
+            revert InvalidConfig();
+        }
+
         emit SwapRouterChanged(_swapRouter);
         swapRouter = _swapRouter;
     }
