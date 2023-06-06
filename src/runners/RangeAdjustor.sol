@@ -6,6 +6,7 @@ import "./Runner.sol";
 /// @title RangeAdjustor
 /// @notice Allows operator of RangeAdjustor contract (Revert controlled bot) to change range for configured positions
 /// Positions need to be approved (setApprovalForAll) for the contract and configured with configToken method
+/// When executed a new position is created and automatically configured the same way as the original position
 contract RangeAdjustor is Runner {
 
     error NotConfigured();
