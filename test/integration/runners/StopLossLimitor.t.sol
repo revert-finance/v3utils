@@ -81,7 +81,7 @@ contract StopLossLimitorTest is IntegrationTestBase {
         NPM.setApprovalForAll(address(stopLossLimitor), true);
 
         _setConfig(TEST_NFT, true, false, false, 0, 0, -276325, type(int24).max);
-        vm.expectRevert(StopLossLimitor.NotInCondition.selector);
+        vm.expectRevert(StopLossLimitor.NotReady.selector);
         vm.prank(OPERATOR_ACCOUNT);
         stopLossLimitor.execute(StopLossLimitor.ExecuteParams(TEST_NFT, "", block.timestamp));
 
@@ -229,7 +229,7 @@ contract StopLossLimitorTest is IntegrationTestBase {
         stopLossLimitor.configToken(TEST_NFT_2_A, StopLossLimitor.PositionConfig(true, false, false, -276331, -276320, 0, 0));
 
         // in range position cant be run
-        vm.expectRevert(StopLossLimitor.NotInCondition.selector);
+        vm.expectRevert(StopLossLimitor.NotReady.selector);
         vm.prank(OPERATOR_ACCOUNT);
         stopLossLimitor.execute(StopLossLimitor.ExecuteParams(TEST_NFT_2_A, "", block.timestamp));
     }

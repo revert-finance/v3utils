@@ -8,8 +8,6 @@ import "./Runner.sol";
 /// Positions need to be approved (setApprovalForAll) for the contract and configured with configToken method
 contract RangeAdjustor is Runner {
 
-    error WrongContract();
-    error AdjustStateError();
     error NotConfigured();
     error NotReady();
     error SameRange();

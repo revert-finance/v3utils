@@ -13,19 +13,18 @@ import "v3-core/libraries/FullMath.sol";
 import "v3-periphery/interfaces/INonfungiblePositionManager.sol";
 import "v3-periphery/interfaces/external/IWETH9.sol";
 
-
 abstract contract Runner is Ownable {
 
     uint256 internal constant Q64 = 2 ** 64;
     uint256 internal constant Q96 = 2 ** 96;
 
-    error TWAPCheckFailed();
+    error Unauthorized();
     error InvalidConfig();
+    error TWAPCheckFailed();
     error EtherSendFailed();
     error NotWETH();
     error SwapFailed();
     error SlippageError();
-    error Unauthorized();
 
     INonfungiblePositionManager public immutable nonfungiblePositionManager;
     IUniswapV3Factory public immutable factory;
@@ -212,16 +211,6 @@ abstract contract Runner is Ownable {
                     address(factory),
                     PoolAddress.getPoolKey(tokenA, tokenB, fee)
                 )
-            );
-    }
-
-    function _getMinAmountOut(uint256 amountIn, uint256 priceX96, uint64 maxSlippageX64, bool swap0To1) internal pure returns (uint256) {
-        return FullMath.mulDiv(
-                Q64 - maxSlippageX64,
-                swap0To1
-                    ? FullMath.mulDiv(amountIn, priceX96, Q96)
-                    : FullMath.mulDiv(amountIn, Q96, priceX96),
-                Q64
             );
     }
 

@@ -9,18 +9,15 @@ import "./Runner.sol";
 /// Positions need to be approved (approve or setApprovalForAll) for the contract and configured with configToken method
 contract StopLossLimitor is Runner {
 
-    error NotFound();
     error NoLiquidity();
     error NotConfigured();
-    error NotInCondition();
+    error NotReady();
     error MissingSwapData();
-    error OnlyContractOwnerCanSwap();
-    error ConfigError();
 
     event Executed(
+        uint256 indexed tokenId,
         address account,
         bool isSwap,
-        uint256 tokenId,
         uint256 amountReturned0,
         uint256 amountReturned1,
         address token0,
@@ -117,10 +114,10 @@ contract StopLossLimitor is Runner {
 
         // not triggered
         if (config.token0TriggerTick <= state.tick && state.tick < config.token1TriggerTick) {
-            revert NotInCondition();
+            revert NotReady();
         }
     
-        state.isAbove = state.tick > config.token1TriggerTick;
+        state.isAbove = state.tick >= config.token1TriggerTick;
         state.isSwap = !state.isAbove && config.token0Swap || state.isAbove && config.token1Swap;
        
         // decrease full liquidity for given position (one sided only) - and return fees as well
@@ -162,7 +159,7 @@ contract StopLossLimitor is Runner {
         emit PositionConfigured(params.tokenId, false, false, false, 0, 0, 0, 0);
 
         // log event
-        emit Executed(msg.sender, state.isSwap, params.tokenId, state.amount0, state.amount1, state.token0, state.token1);
+        emit Executed(params.tokenId, msg.sender, state.isSwap, state.amount0, state.amount1, state.token0, state.token1);
     }
 
     // function to configure a token to be used with this runner
