@@ -77,8 +77,9 @@ contract StopLossLimitorTest is IntegrationTestBase {
         assertEq(tickUpper, -276310);
         assertEq(tick, -276325);
     
+        // test with single approval
         vm.prank(TEST_NFT_ACCOUNT);
-        NPM.setApprovalForAll(address(stopLossLimitor), true);
+        NPM.approve(address(stopLossLimitor), TEST_NFT);
 
         _setConfig(TEST_NFT, true, false, false, 0, 0, -276325, type(int24).max);
         vm.expectRevert(StopLossLimitor.NotReady.selector);
