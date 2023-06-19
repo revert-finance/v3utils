@@ -69,6 +69,12 @@ contract RangeAdjustor is Runner {
         uint256 amount0;
         uint256 amount1;
 
+        uint256 maxAddAmount0;
+        uint256 maxAddAmount1;
+
+        uint256 amountAdded0;
+        uint256 amountAdded1;
+
         uint128 liquidity;
 
         uint256 protocolReward0;
@@ -77,8 +83,7 @@ contract RangeAdjustor is Runner {
         uint256 amountInDelta;
         uint256 amountOutDelta;
 
-        uint256 balance0;
-        uint256 balance1;
+
         uint256 newTokenId;
     }
 
@@ -117,10 +122,10 @@ contract RangeAdjustor is Runner {
 
             state.amount0 = params.swap0To1 ? state.amount0 - state.amountInDelta : state.amount0 + state.amountOutDelta;
             state.amount1 = params.swap0To1 ? state.amount1 + state.amountOutDelta : state.amount1 - state.amountInDelta;
-
-            // protocol reward is removed from both token amounts and kept in contract for later retrieval
-            state.protocolReward0 = state.amount0 * protocolRewardX64 / Q64;
-            state.protocolReward1 = state.amount1 * protocolRewardX64 / Q64;
+                
+            // max amount to add - removing max potential fees
+            state.maxAddAmount0 = state.amount0 * Q64 / (protocolRewardX64 + Q64);
+            state.maxAddAmount1 = state.amount1 * Q64 / (protocolRewardX64 + Q64);
 
             int24 tickSpacing = _getTickSpacing(state.fee);
             int24 baseTick = state.currentTick - (((state.currentTick % tickSpacing) + tickSpacing) % tickSpacing);
@@ -137,8 +142,8 @@ contract RangeAdjustor is Runner {
                     state.fee, 
                     SafeCast.toInt24(baseTick + config.lowerTickDelta), // reverts if out of valid range
                     SafeCast.toInt24(baseTick + config.upperTickDelta), // reverts if out of valid range
-                    state.amount0 - state.protocolReward0,
-                    state.amount1 - state.protocolReward1, 
+                    state.maxAddAmount0,
+                    state.maxAddAmount1, 
                     0,
                     0,
                     address(this), // is sent to real recipient aftwards
@@ -146,11 +151,11 @@ contract RangeAdjustor is Runner {
                 );
 
             // approve npm 
-            SafeERC20.safeApprove(IERC20(state.token0), address(nonfungiblePositionManager), state.amount0 - state.protocolReward0);
-            SafeERC20.safeApprove(IERC20(state.token1), address(nonfungiblePositionManager), state.amount1 - state.protocolReward1);
+            SafeERC20.safeApprove(IERC20(state.token0), address(nonfungiblePositionManager), state.maxAddAmount0);
+            SafeERC20.safeApprove(IERC20(state.token1), address(nonfungiblePositionManager), state.maxAddAmount1);
 
             // mint is done to address(this) first - its not a safemint
-            (state.newTokenId,,state.balance0,state.balance1) = nonfungiblePositionManager.mint(mintParams);
+            (state.newTokenId,,state.amountAdded0,state.amountAdded1) = nonfungiblePositionManager.mint(mintParams);
 
             // remove remaining approval
             SafeERC20.safeApprove(IERC20(state.token0), address(nonfungiblePositionManager), 0);
@@ -161,12 +166,16 @@ contract RangeAdjustor is Runner {
             // send it to current owner
             nonfungiblePositionManager.safeTransferFrom(address(this), state.owner, state.newTokenId);
 
+            // protocol reward is calculated based on added amount (to incentivize optimal swap done by operator)
+            state.protocolReward0 = state.amountAdded0 * protocolRewardX64 / Q64;
+            state.protocolReward1 = state.amountAdded1 * protocolRewardX64 / Q64;
+
             // send leftover to owner
-            if (state.amount0 - state.protocolReward0 - state.balance0 > 0) {
-                _transferToken(state.owner, IERC20(state.token0), state.amount0 - state.protocolReward0 - state.balance0, true);
+            if (state.amount0 - state.protocolReward0 - state.amountAdded0 > 0) {
+                _transferToken(state.owner, IERC20(state.token0), state.amount0 - state.protocolReward0 - state.amountAdded0, true);
             }
-            if (state.amount1 - state.protocolReward1 - state.balance1 > 0) {
-                _transferToken(state.owner, IERC20(state.token1), state.amount1 - state.protocolReward1 - state.balance1, true);
+            if (state.amount1 - state.protocolReward1 - state.amountAdded1 > 0) {
+                _transferToken(state.owner, IERC20(state.token1), state.amount1 - state.protocolReward1 - state.amountAdded1, true);
             }
 
             // copy token config for new token

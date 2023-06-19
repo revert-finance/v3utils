@@ -150,12 +150,12 @@ contract RangeAdjustorTest is IntegrationTestBase {
         rangeAdjustor.execute(RangeAdjustor.ExecuteParams(TEST_NFT_2, false, 0, "", block.timestamp));
 
         // protocol fee
-        assertEq(DAI.balanceOf(address(rangeAdjustor)) - protocolDAIBalanceBefore, 1558388099700309450);
-        assertEq(WETH_ERC20.balanceOf(address(rangeAdjustor)) - protocolWETHBalanceBefore, 2534515302783060);
+        assertEq(DAI.balanceOf(address(rangeAdjustor)) - protocolDAIBalanceBefore, 777250922543795237);
+        assertEq(WETH_ERC20.balanceOf(address(rangeAdjustor)) - protocolWETHBalanceBefore, 193185163020990);
 
         // leftovers returned to owner
-        assertEq(DAI.balanceOf(TEST_NFT_2_ACCOUNT) - ownerDAIBalanceBefore, 0); // all was added to position
-        assertEq(TEST_NFT_2_ACCOUNT.balance - ownerWETHBalanceBefore, 427288631134268972); // leftover + fee + deposited = total in old position
+        assertEq(DAI.balanceOf(TEST_NFT_2_ACCOUNT) - ownerDAIBalanceBefore, 1); // all was added to position
+        assertEq(TEST_NFT_2_ACCOUNT.balance - ownerWETHBalanceBefore, 429435810185194946); // leftover + fee + deposited = total in old position
 
         count = NPM.balanceOf(TEST_NFT_2_ACCOUNT);
         assertEq(count, 5);
@@ -180,15 +180,15 @@ contract RangeAdjustorTest is IntegrationTestBase {
         (uint256 amount0, uint256 amount1) = LiquidityAmounts.getAmountsForLiquidity(sqrtPriceX96, TickMath.getSqrtRatioAtTick(tickLowerAfter), TickMath.getSqrtRatioAtTick(tickUpperAfter), liquidity);
 
         // new position amounts
-        assertEq(amount0, 310119231840361580895); //DAI
-        assertEq(amount1, 77079914119560008); //WETH
+        assertEq(amount0, 310900369017518095107); //DAI
+        assertEq(amount1, 77274065208396104); //WETH
 
         // check tick range correct
         assertEq(tickLowerAfter, -73260);
         assertEq(currentTick,  -73244);
         assertEq(tickUpperAfter, -73260 + 60);
 
-        assertEq(liquidity, 3658702973175179764265);
+        assertEq(liquidity, 3667918618704675260835);
         assertEq(liquidityOld, 0);
     }
 
@@ -215,12 +215,12 @@ contract RangeAdjustorTest is IntegrationTestBase {
         rangeAdjustor.execute(RangeAdjustor.ExecuteParams(TEST_NFT_2, false, 300000000000000000, _get03WETHToDAISwapData(), block.timestamp)); // max fee with 1% is 7124618988448545
 
         // protocol fee
-        assertEq(DAI.balanceOf(address(rangeAdjustor)) - protocolDAIBalanceBefore, 3835989011312334835);
-        assertEq(WETH_ERC20.balanceOf(address(rangeAdjustor)) - protocolWETHBalanceBefore, 1034515302783060);
+        assertEq(DAI.balanceOf(address(rangeAdjustor)) - protocolDAIBalanceBefore, 1913211476963758022);
+        assertEq(WETH_ERC20.balanceOf(address(rangeAdjustor)) - protocolWETHBalanceBefore, 475527349470656);
 
         // leftovers returned to owner
-        assertEq(DAI.balanceOf(TEST_NFT_2_ACCOUNT) - ownerDAIBalanceBefore, 0); // all was added to position
-        assertEq(TEST_NFT_2_ACCOUNT.balance - ownerWETHBalanceBefore, 16135510451784564); // leftover + fee + deposited = total in old position
+        assertEq(DAI.balanceOf(TEST_NFT_2_ACCOUNT) - ownerDAIBalanceBefore, 1); // all was added to position
+        assertEq(TEST_NFT_2_ACCOUNT.balance - ownerWETHBalanceBefore, 16216593418878959); // leftover + fee + deposited = total in old position
 
         uint count = NPM.balanceOf(TEST_NFT_2_ACCOUNT);
 
@@ -239,15 +239,15 @@ contract RangeAdjustorTest is IntegrationTestBase {
         (uint256 amount0, uint256 amount1) = LiquidityAmounts.getAmountsForLiquidity(sqrtPriceX96, TickMath.getSqrtRatioAtTick(tickLowerAfter), TickMath.getSqrtRatioAtTick(tickUpperAfter), liquidity);
 
         // new position amounts
-        assertEq(amount0, 763361813251154632863); //DAI
-        assertEq(amount1, 189733034802044416); //WETH
+        assertEq(amount0, 765284590785503209675); //DAI
+        assertEq(amount1, 190210939788262425); //WETH
 
         // check tick range correct
         assertEq(tickLowerAfter, -73260);
         assertEq(currentTick,  -73244);
         assertEq(tickUpperAfter, -73260 + 60);
 
-        assertEq(liquidity, 9005936585023173514183);
+        assertEq(liquidity, 9028620995273798933977);
         assertEq(liquidityOld, 0);
     }
 

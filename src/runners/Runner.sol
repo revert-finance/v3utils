@@ -30,8 +30,7 @@ abstract contract Runner is Ownable {
     IUniswapV3Factory public immutable factory;
     IWETH9 immutable public weth;
 
-    // TODO do we want this to be fixed or decreasable?
-    uint64 immutable public protocolRewardX64 = uint64(Q64 / 200); // 0.5%
+    uint64 immutable public protocolRewardX64 = uint64(Q64 / 400); // 0.25%
 
     // admin events
     event OperatorChanged(address newOperator);

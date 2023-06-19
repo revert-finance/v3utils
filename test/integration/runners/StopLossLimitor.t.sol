@@ -134,8 +134,8 @@ contract StopLossLimitorTest is IntegrationTestBase {
         stopLossLimitor.withdrawBalance(address(USDC), address(this));
         balanceAfter = USDC.balanceOf(address(this));
 
-        assertEq(swapBalanceAfter - swapBalanceBefore, 988879);
-        assertEq(balanceAfter - balanceBefore, 4969);
+        assertEq(swapBalanceAfter - swapBalanceBefore, 991364);
+        assertEq(balanceAfter - balanceBefore, 2484);
     }
 
      function testDirectSendNFT() external {
@@ -279,13 +279,13 @@ contract StopLossLimitorTest is IntegrationTestBase {
         vm.expectRevert(StopLossLimitor.NotConfigured.selector);
         stopLossLimitor.execute(StopLossLimitor.ExecuteParams(TEST_NFT_2, "", block.timestamp));
 
-        // fee stored for owner in contract
-        assertEq(WETH_ERC20.balanceOf(address(stopLossLimitor)) - contractWETHBalanceBefore, 2534515302783060);
-        assertEq(DAI.balanceOf(address(stopLossLimitor)) - contractDAIBalanceBefore, 1558388099700309450);
+        // fee stored for owner in contract (only WETH because WETH is target token)
+        assertEq(WETH_ERC20.balanceOf(address(stopLossLimitor)) - contractWETHBalanceBefore, 1267257651391530);
+        assertEq(DAI.balanceOf(address(stopLossLimitor)) - contractDAIBalanceBefore, 0);
 
         // leftovers returned to owner
-        assertEq(DAI.balanceOf(TEST_NFT_2_ACCOUNT) - ownerDAIBalanceBefore, 310119231840361580896); // all available
-        assertEq(TEST_NFT_2_ACCOUNT.balance - ownerWETHBalanceBefore, 504368545253828981); // all available
+        assertEq(DAI.balanceOf(TEST_NFT_2_ACCOUNT) - ownerDAIBalanceBefore, 311677619940061890346); // all available
+        assertEq(TEST_NFT_2_ACCOUNT.balance - ownerWETHBalanceBefore, 505635802905220511); // all available
     }
 
     // tests StopLoss without adding to module
@@ -318,12 +318,12 @@ contract StopLossLimitorTest is IntegrationTestBase {
         vm.expectRevert(StopLossLimitor.NotConfigured.selector);
         stopLossLimitor.execute(StopLossLimitor.ExecuteParams(TEST_NFT_2, _getWETHToDAISwapData(), block.timestamp));
 
-        // fee stored for owner in contract
+        // fee stored for owner in contract (because perfect swap all fees are grabbed from target token DAI)
         assertEq(WETH_ERC20.balanceOf(address(stopLossLimitor)) - contractWETHBalanceBefore, 0);
-        assertEq(DAI.balanceOf(address(stopLossLimitor)) - contractDAIBalanceBefore, 5406774833810580731);
+        assertEq(DAI.balanceOf(address(stopLossLimitor)) - contractDAIBalanceBefore, 2703387416905290365);
 
         // leftovers returned to owner
-        assertEq(DAI.balanceOf(TEST_NFT_2_ACCOUNT) - ownerDAIBalanceBefore, 1075948191928305566472); // all available
+        assertEq(DAI.balanceOf(TEST_NFT_2_ACCOUNT) - ownerDAIBalanceBefore, 1078651579345210856838); // all available
         assertEq(TEST_NFT_2_ACCOUNT.balance - ownerWETHBalanceBefore, 0); // all available
     }
 

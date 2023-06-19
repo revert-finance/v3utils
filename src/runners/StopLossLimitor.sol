@@ -74,8 +74,6 @@ contract StopLossLimitor is Runner {
         uint256 amountInDelta;
         uint256 amountOutDelta;
         IUniswapV3Pool pool;
-        uint256 protocolReward0;
-        uint256 protocolReward1;
         uint256 swapAmount;
         int24 tick;
         bool isSwap;
@@ -120,7 +118,7 @@ contract StopLossLimitor is Runner {
         state.isAbove = state.tick >= config.token1TriggerTick;
         state.isSwap = !state.isAbove && config.token0Swap || state.isAbove && config.token1Swap;
        
-        // decrease full liquidity for given position (one sided only) - and return fees as well
+        // decrease full liquidity for given position - and return fees as well
         (state.amount0, state.amount1) = _decreaseFullLiquidityAndCollect(params.tokenId, state.liquidity, params.deadline);
 
         // swap to other token
@@ -140,11 +138,12 @@ contract StopLossLimitor is Runner {
             state.amount1 = state.isAbove ? state.amount1 - state.amountInDelta : state.amount1 + state.amountOutDelta;
         }
      
-        // protocol reward is removed from both token amounts and kept in contract for later retrieval
-        state.protocolReward0 = state.amount0 * protocolRewardX64 / Q64;
-        state.protocolReward1 = state.amount1 * protocolRewardX64 / Q64;
-        state.amount0 -= state.protocolReward0;
-        state.amount1 -= state.protocolReward1;
+        // protocol reward is removed only from target token (to incentivize optimal swap done by operator)
+        if (state.isAbove && state.isSwap || !state.isAbove && !state.isSwap) {
+            state.amount0 -= state.amount0 * protocolRewardX64 / Q64;
+        } else {
+            state.amount1 -= state.amount1 * protocolRewardX64 / Q64;
+        }
 
         state.owner = nonfungiblePositionManager.ownerOf(params.tokenId);
         if (state.amount0 > 0) {
@@ -171,9 +170,7 @@ contract StopLossLimitor is Runner {
         }
 
         if (config.isActive) {
-            // trigger ticks have to be on the correct side of position range
-            (,,,,, int24 tickLower, int24 tickUpper,,,,,) = nonfungiblePositionManager.positions(tokenId);
-            if (tickLower < config.token0TriggerTick || tickUpper > config.token1TriggerTick) {
+            if (config.token0TriggerTick >= config.token1TriggerTick) {
                 revert InvalidConfig();
             }
         }
