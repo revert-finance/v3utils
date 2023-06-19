@@ -3,11 +3,11 @@ pragma solidity ^0.8.0;
 
 import "./Runner.sol";
 
-/// @title StopLossLimitor
+/// @title AutoExit
 /// @notice Lets a v3 position to be automatically removed or swapped to the opposite token when it reaches a certain tick. 
 /// A revert controlled bot (operator) is responsible for the execution of optimized swaps (using external swap router)
 /// Positions need to be approved (approve or setApprovalForAll) for the contract and configured with configToken method
-contract StopLossLimitor is Runner {
+contract AutoExit is Runner {
 
     error NoLiquidity();
     error NotConfigured();

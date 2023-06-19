@@ -3,11 +3,11 @@ pragma solidity ^0.8.0;
 
 import "./Runner.sol";
 
-/// @title RangeAdjustor
-/// @notice Allows operator of RangeAdjustor contract (Revert controlled bot) to change range for configured positions
+/// @title RangeAdjust
+/// @notice Allows operator of RangeAdjust contract (Revert controlled bot) to change range for configured positions
 /// Positions need to be approved (setApprovalForAll) for the contract and configured with configToken method
 /// When executed a new position is created and automatically configured the same way as the original position
-contract RangeAdjustor is Runner {
+contract RangeAdjust is Runner {
 
     error NotConfigured();
     error NotReady();
