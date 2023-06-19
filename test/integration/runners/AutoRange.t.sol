@@ -3,122 +3,122 @@ pragma solidity ^0.8.0;
 
 import "../../IntegrationTestBase.sol";
 
-import "../../../src/runners/RangeAdjust.sol";
+import "../../../src/runners/AutoRange.sol";
 
 import "v3-periphery/libraries/LiquidityAmounts.sol";
 
-contract RangeAdjustTest is IntegrationTestBase {
+contract AutoRangeTest is IntegrationTestBase {
    
-    RangeAdjust rangeAdjust;
+    AutoRange autoRange;
 
     function setUp() external {
         _setupBase();
 
-        rangeAdjust = new RangeAdjust(NPM, EX0x, OPERATOR_ACCOUNT, 60, 100);
+        autoRange = new AutoRange(NPM, EX0x, OPERATOR_ACCOUNT, 60, 100);
     }
 
     function testSetTWAPSeconds() external {
-        uint16 maxTWAPTickDifference = rangeAdjust.maxTWAPTickDifference();
-        rangeAdjust.setTWAPConfig(maxTWAPTickDifference, 120);
-        assertEq(rangeAdjust.TWAPSeconds(), 120);
+        uint16 maxTWAPTickDifference = autoRange.maxTWAPTickDifference();
+        autoRange.setTWAPConfig(maxTWAPTickDifference, 120);
+        assertEq(autoRange.TWAPSeconds(), 120);
 
-        vm.expectRevert(Runner.InvalidConfig.selector);
-        rangeAdjust.setTWAPConfig(maxTWAPTickDifference, 60);
+        vm.expectRevert(Automator.InvalidConfig.selector);
+        autoRange.setTWAPConfig(maxTWAPTickDifference, 60);
     }
 
     function testSetMaxTWAPTickDifference() external {
-        uint32 TWAPSeconds = rangeAdjust.TWAPSeconds();
-        rangeAdjust.setTWAPConfig(5, TWAPSeconds);
-        assertEq(rangeAdjust.maxTWAPTickDifference(), 5);
+        uint32 TWAPSeconds = autoRange.TWAPSeconds();
+        autoRange.setTWAPConfig(5, TWAPSeconds);
+        assertEq(autoRange.maxTWAPTickDifference(), 5);
 
-        vm.expectRevert(Runner.InvalidConfig.selector);
-        rangeAdjust.setTWAPConfig(10, TWAPSeconds);
+        vm.expectRevert(Automator.InvalidConfig.selector);
+        autoRange.setTWAPConfig(10, TWAPSeconds);
     }
 
     function testSetOperator() external {
-        assertEq(rangeAdjust.operator(), OPERATOR_ACCOUNT);
-        rangeAdjust.setOperator(TEST_NFT_ACCOUNT);
-        assertEq(rangeAdjust.operator(), TEST_NFT_ACCOUNT);
+        assertEq(autoRange.operator(), OPERATOR_ACCOUNT);
+        autoRange.setOperator(TEST_NFT_ACCOUNT);
+        assertEq(autoRange.operator(), TEST_NFT_ACCOUNT);
     }
 
 
     function testUnauthorizedSetConfig() external {
-        vm.expectRevert(Runner.Unauthorized.selector);
+        vm.expectRevert(Automator.Unauthorized.selector);
         vm.prank(TEST_NFT_ACCOUNT);
-        rangeAdjust.configToken(TEST_NFT_2, RangeAdjust.PositionConfig(0, 0, 0, 1, 0, 0));
+        autoRange.configToken(TEST_NFT_2, AutoRange.PositionConfig(0, 0, 0, 1, 0, 0));
     }
 
     function testResetConfig() external {
         vm.prank(TEST_NFT_ACCOUNT);
-        rangeAdjust.configToken(TEST_NFT, RangeAdjust.PositionConfig(0, 0, 0, 0, 0, 0));
+        autoRange.configToken(TEST_NFT, AutoRange.PositionConfig(0, 0, 0, 0, 0, 0));
     }
 
     function testInvalidConfig() external {
-        vm.expectRevert(Runner.InvalidConfig.selector);
+        vm.expectRevert(Automator.InvalidConfig.selector);
         vm.prank(TEST_NFT_ACCOUNT);
-        rangeAdjust.configToken(TEST_NFT, RangeAdjust.PositionConfig(0, 0, 1, 0, 0, 0));
+        autoRange.configToken(TEST_NFT, AutoRange.PositionConfig(0, 0, 1, 0, 0, 0));
     }
 
     function testValidSetConfig() external {
         vm.prank(TEST_NFT_ACCOUNT);
-        RangeAdjust.PositionConfig memory configIn = RangeAdjust.PositionConfig(1, -1, 0, 1, 123, 456);
-        rangeAdjust.configToken(TEST_NFT, configIn);
-        (int32 i1, int32 i2, int32 i3, int32 i4, uint64 i5, uint64 i6) = rangeAdjust.positionConfigs(TEST_NFT);
-        assertEq(abi.encode(configIn), abi.encode(RangeAdjust.PositionConfig(i1, i2, i3, i4, i5, i6)));
+        AutoRange.PositionConfig memory configIn = AutoRange.PositionConfig(1, -1, 0, 1, 123, 456);
+        autoRange.configToken(TEST_NFT, configIn);
+        (int32 i1, int32 i2, int32 i3, int32 i4, uint64 i5, uint64 i6) = autoRange.positionConfigs(TEST_NFT);
+        assertEq(abi.encode(configIn), abi.encode(AutoRange.PositionConfig(i1, i2, i3, i4, i5, i6)));
     }
 
     function testNonOperator() external {
-        vm.expectRevert(Runner.Unauthorized.selector);
+        vm.expectRevert(Automator.Unauthorized.selector);
         vm.prank(TEST_NFT_ACCOUNT);
-        rangeAdjust.execute(RangeAdjust.ExecuteParams(TEST_NFT, false, 0, "", block.timestamp));
+        autoRange.execute(AutoRange.ExecuteParams(TEST_NFT, false, 0, "", block.timestamp));
     }
 
     function testAdjustWithoutApprove() external {
         // out of range position
         vm.prank(TEST_NFT_2_ACCOUNT);
-        rangeAdjust.configToken(TEST_NFT_2, RangeAdjust.PositionConfig(0, 0, 0, 1, 0, 0));
+        autoRange.configToken(TEST_NFT_2, AutoRange.PositionConfig(0, 0, 0, 1, 0, 0));
 
         // fails when sending NFT
         vm.expectRevert(abi.encodePacked("Not approved"));
         
         vm.prank(OPERATOR_ACCOUNT);
-        rangeAdjust.execute(RangeAdjust.ExecuteParams(TEST_NFT_2, false, 0, "", block.timestamp));
+        autoRange.execute(AutoRange.ExecuteParams(TEST_NFT_2, false, 0, "", block.timestamp));
     }
 
     function testAdjustWithoutConfig() external {
 
         vm.prank(TEST_NFT_ACCOUNT);
-        NPM.setApprovalForAll(address(rangeAdjust), true);
+        NPM.setApprovalForAll(address(autoRange), true);
 
-        vm.expectRevert(RangeAdjust.NotConfigured.selector);
+        vm.expectRevert(AutoRange.NotConfigured.selector);
         vm.prank(OPERATOR_ACCOUNT);
-        rangeAdjust.execute(RangeAdjust.ExecuteParams(TEST_NFT, false, 0, "", block.timestamp));
+        autoRange.execute(AutoRange.ExecuteParams(TEST_NFT, false, 0, "", block.timestamp));
     }
 
     function testAdjustNotAdjustable() external {
         vm.prank(TEST_NFT_2_ACCOUNT);
-        NPM.setApprovalForAll(address(rangeAdjust), true);
+        NPM.setApprovalForAll(address(autoRange), true);
 
         vm.prank(TEST_NFT_2_ACCOUNT);
-        rangeAdjust.configToken(TEST_NFT_2_A, RangeAdjust.PositionConfig(0, 0, 0, 60, uint64(Q64 / 100), uint64(Q64 / 100))); // 1% max fee, 1% max slippage
+        autoRange.configToken(TEST_NFT_2_A, AutoRange.PositionConfig(0, 0, 0, 60, uint64(Q64 / 100), uint64(Q64 / 100))); // 1% max fee, 1% max slippage
 
         // in range position cant be adjusted
-        vm.expectRevert(RangeAdjust.NotReady.selector);
+        vm.expectRevert(AutoRange.NotReady.selector);
         vm.prank(OPERATOR_ACCOUNT);
-        rangeAdjust.execute(RangeAdjust.ExecuteParams(TEST_NFT_2_A, false, 0, "", block.timestamp));
+        autoRange.execute(AutoRange.ExecuteParams(TEST_NFT_2_A, false, 0, "", block.timestamp));
     }
 
     function testAdjustOutOfRange() external {
         vm.prank(TEST_NFT_2_ACCOUNT);
-        NPM.setApprovalForAll(address(rangeAdjust), true);
+        NPM.setApprovalForAll(address(autoRange), true);
 
         vm.prank(TEST_NFT_2_ACCOUNT);
-        rangeAdjust.configToken(TEST_NFT_2, RangeAdjust.PositionConfig(0, 0, -int32(uint32(type(uint24).max)), int32(uint32(type(uint24).max)), 0, 0)); // 1% max fee, 1% max slippage
+        autoRange.configToken(TEST_NFT_2, AutoRange.PositionConfig(0, 0, -int32(uint32(type(uint24).max)), int32(uint32(type(uint24).max)), 0, 0)); // 1% max fee, 1% max slippage
 
         // will be reverted because range Arithmetic over/underflow
         vm.expectRevert(abi.encodePacked("SafeCast: value doesn't fit in 24 bits"));
         vm.prank(OPERATOR_ACCOUNT);
-        rangeAdjust.execute(RangeAdjust.ExecuteParams(TEST_NFT_2, false, 0, "", block.timestamp));
+        autoRange.execute(AutoRange.ExecuteParams(TEST_NFT_2, false, 0, "", block.timestamp));
     }
 
     function testAdjustWithoutSwap() external {
@@ -128,30 +128,30 @@ contract RangeAdjustTest is IntegrationTestBase {
         // added to new position -> 311677619940061890345 77467250371417094
         
         vm.prank(TEST_NFT_2_ACCOUNT);
-        NPM.setApprovalForAll(address(rangeAdjust), true);
+        NPM.setApprovalForAll(address(autoRange), true);
 
         vm.prank(TEST_NFT_2_ACCOUNT);
-        rangeAdjust.configToken(TEST_NFT_2, RangeAdjust.PositionConfig(0, 0, 0, 60, uint64(Q64 / 100), uint64(Q64 / 100))); // 1% max fee, 1% max slippage
+        autoRange.configToken(TEST_NFT_2, AutoRange.PositionConfig(0, 0, 0, 60, uint64(Q64 / 100), uint64(Q64 / 100))); // 1% max fee, 1% max slippage
         uint count = NPM.balanceOf(TEST_NFT_2_ACCOUNT);
         assertEq(count, 4);
 
-        uint protocolDAIBalanceBefore = DAI.balanceOf(address(rangeAdjust));
-        uint protocolWETHBalanceBefore = WETH_ERC20.balanceOf(address(rangeAdjust));
+        uint protocolDAIBalanceBefore = DAI.balanceOf(address(autoRange));
+        uint protocolWETHBalanceBefore = WETH_ERC20.balanceOf(address(autoRange));
 
         uint ownerDAIBalanceBefore = DAI.balanceOf(TEST_NFT_2_ACCOUNT);
         uint ownerWETHBalanceBefore = TEST_NFT_2_ACCOUNT.balance;
 
         vm.prank(OPERATOR_ACCOUNT);
-        rangeAdjust.execute(RangeAdjust.ExecuteParams(TEST_NFT_2, false, 0, "", block.timestamp)); // max fee with 1% is 7124618988448545
+        autoRange.execute(AutoRange.ExecuteParams(TEST_NFT_2, false, 0, "", block.timestamp)); // max fee with 1% is 7124618988448545
 
         // is not adjustable yet because config was removed
         vm.prank(OPERATOR_ACCOUNT);
-        vm.expectRevert(RangeAdjust.NotConfigured.selector);
-        rangeAdjust.execute(RangeAdjust.ExecuteParams(TEST_NFT_2, false, 0, "", block.timestamp));
+        vm.expectRevert(AutoRange.NotConfigured.selector);
+        autoRange.execute(AutoRange.ExecuteParams(TEST_NFT_2, false, 0, "", block.timestamp));
 
         // protocol fee
-        assertEq(DAI.balanceOf(address(rangeAdjust)) - protocolDAIBalanceBefore, 777250922543795237);
-        assertEq(WETH_ERC20.balanceOf(address(rangeAdjust)) - protocolWETHBalanceBefore, 193185163020990);
+        assertEq(DAI.balanceOf(address(autoRange)) - protocolDAIBalanceBefore, 777250922543795237);
+        assertEq(WETH_ERC20.balanceOf(address(autoRange)) - protocolWETHBalanceBefore, 193185163020990);
 
         // leftovers returned to owner
         assertEq(DAI.balanceOf(TEST_NFT_2_ACCOUNT) - ownerDAIBalanceBefore, 1); // all was added to position
@@ -165,8 +165,8 @@ contract RangeAdjustTest is IntegrationTestBase {
 
         // is not adjustable yet because in range
         vm.prank(OPERATOR_ACCOUNT);
-        vm.expectRevert(RangeAdjust.NotReady.selector);
-        rangeAdjust.execute(RangeAdjust.ExecuteParams(tokenId, false, 0, "", block.timestamp));
+        vm.expectRevert(AutoRange.NotReady.selector);
+        autoRange.execute(AutoRange.ExecuteParams(tokenId, false, 0, "", block.timestamp));
 
         // newly minted token
         assertEq(tokenId, 309207);
@@ -200,23 +200,23 @@ contract RangeAdjustTest is IntegrationTestBase {
         // added to new position -> 767197802262466967698 190686467137733081
         
         vm.prank(TEST_NFT_2_ACCOUNT);
-        NPM.setApprovalForAll(address(rangeAdjust), true);
+        NPM.setApprovalForAll(address(autoRange), true);
 
         vm.prank(TEST_NFT_2_ACCOUNT);
-        rangeAdjust.configToken(TEST_NFT_2, RangeAdjust.PositionConfig(0, 0, 0, 60, uint64(Q64 / 100), uint64(Q64 / 100))); // 1% max fee, 1% max slippage
+        autoRange.configToken(TEST_NFT_2, AutoRange.PositionConfig(0, 0, 0, 60, uint64(Q64 / 100), uint64(Q64 / 100))); // 1% max fee, 1% max slippage
        
-        uint protocolDAIBalanceBefore = DAI.balanceOf(address(rangeAdjust));
-        uint protocolWETHBalanceBefore = WETH_ERC20.balanceOf(address(rangeAdjust));
+        uint protocolDAIBalanceBefore = DAI.balanceOf(address(autoRange));
+        uint protocolWETHBalanceBefore = WETH_ERC20.balanceOf(address(autoRange));
 
         uint ownerDAIBalanceBefore = DAI.balanceOf(TEST_NFT_2_ACCOUNT);
         uint ownerWETHBalanceBefore = TEST_NFT_2_ACCOUNT.balance;
 
         vm.prank(OPERATOR_ACCOUNT);
-        rangeAdjust.execute(RangeAdjust.ExecuteParams(TEST_NFT_2, false, 300000000000000000, _get03WETHToDAISwapData(), block.timestamp)); // max fee with 1% is 7124618988448545
+        autoRange.execute(AutoRange.ExecuteParams(TEST_NFT_2, false, 300000000000000000, _get03WETHToDAISwapData(), block.timestamp)); // max fee with 1% is 7124618988448545
 
         // protocol fee
-        assertEq(DAI.balanceOf(address(rangeAdjust)) - protocolDAIBalanceBefore, 1913211476963758022);
-        assertEq(WETH_ERC20.balanceOf(address(rangeAdjust)) - protocolWETHBalanceBefore, 475527349470656);
+        assertEq(DAI.balanceOf(address(autoRange)) - protocolDAIBalanceBefore, 1913211476963758022);
+        assertEq(WETH_ERC20.balanceOf(address(autoRange)) - protocolWETHBalanceBefore, 475527349470656);
 
         // leftovers returned to owner
         assertEq(DAI.balanceOf(TEST_NFT_2_ACCOUNT) - ownerDAIBalanceBefore, 1); // all was added to position
@@ -254,15 +254,15 @@ contract RangeAdjustTest is IntegrationTestBase {
     function testDoubleAdjust() external {
                 
         vm.prank(TEST_NFT_2_ACCOUNT);
-        NPM.setApprovalForAll(address(rangeAdjust), true);
+        NPM.setApprovalForAll(address(autoRange), true);
 
         // bad config so it can be adjusted multiple times
         vm.prank(TEST_NFT_2_ACCOUNT);
-        rangeAdjust.configToken(TEST_NFT_2, RangeAdjust.PositionConfig(-100000, -100000, 0, 60, uint64(Q64 / 100), uint64(Q64 / 100)));
+        autoRange.configToken(TEST_NFT_2, AutoRange.PositionConfig(-100000, -100000, 0, 60, uint64(Q64 / 100), uint64(Q64 / 100)));
 
         // first adjust ok
         vm.prank(OPERATOR_ACCOUNT);
-        rangeAdjust.execute(RangeAdjust.ExecuteParams(TEST_NFT_2, false, 0, "", block.timestamp));
+        autoRange.execute(AutoRange.ExecuteParams(TEST_NFT_2, false, 0, "", block.timestamp));
 
         uint count = NPM.balanceOf(TEST_NFT_2_ACCOUNT);
         uint tokenId = NPM.tokenOfOwnerByIndex(TEST_NFT_2_ACCOUNT, count - 1);
@@ -272,25 +272,25 @@ contract RangeAdjustTest is IntegrationTestBase {
 
         // second ajust leads to same range error
         vm.prank(OPERATOR_ACCOUNT);
-        vm.expectRevert(RangeAdjust.SameRange.selector);
-        rangeAdjust.execute(RangeAdjust.ExecuteParams(tokenId, false, 0, "", block.timestamp));
+        vm.expectRevert(AutoRange.SameRange.selector);
+        autoRange.execute(AutoRange.ExecuteParams(tokenId, false, 0, "", block.timestamp));
     }
 
     function testOracleCheck() external {
 
         // create range adjustor with more strict oracle config    
-        rangeAdjust = new RangeAdjust(NPM, EX0x, OPERATOR_ACCOUNT, 60 * 30, 4);
+        autoRange = new AutoRange(NPM, EX0x, OPERATOR_ACCOUNT, 60 * 30, 4);
 
         vm.prank(TEST_NFT_2_ACCOUNT);
-        NPM.setApprovalForAll(address(rangeAdjust), true);
+        NPM.setApprovalForAll(address(autoRange), true);
 
         vm.prank(TEST_NFT_2_ACCOUNT);
-        rangeAdjust.configToken(TEST_NFT_2, RangeAdjust.PositionConfig(-100000, -100000, 0, 60, uint64(Q64 / 100), uint64(Q64 / 100)));
+        autoRange.configToken(TEST_NFT_2, AutoRange.PositionConfig(-100000, -100000, 0, 60, uint64(Q64 / 100), uint64(Q64 / 100)));
 
         // TWAPCheckFailed
         vm.prank(OPERATOR_ACCOUNT);
-        vm.expectRevert(Runner.TWAPCheckFailed.selector);
-        rangeAdjust.execute(RangeAdjust.ExecuteParams(TEST_NFT_2, false, 0, "", block.timestamp));
+        vm.expectRevert(Automator.TWAPCheckFailed.selector);
+        autoRange.execute(AutoRange.ExecuteParams(TEST_NFT_2, false, 0, "", block.timestamp));
     }
 
     function _get03WETHToDAISwapData() internal view returns (bytes memory) {

@@ -149,7 +149,7 @@ contract AutoExitTest is IntegrationTestBase {
         autoExit.setTWAPConfig(maxTWAPTickDifference, 120);
         assertEq(autoExit.TWAPSeconds(), 120);
 
-        vm.expectRevert(Runner.InvalidConfig.selector);
+        vm.expectRevert(Automator.InvalidConfig.selector);
         autoExit.setTWAPConfig(maxTWAPTickDifference, 60);
     }
 
@@ -158,7 +158,7 @@ contract AutoExitTest is IntegrationTestBase {
         autoExit.setTWAPConfig(5, TWAPSeconds);
         assertEq(autoExit.maxTWAPTickDifference(), 5);
 
-        vm.expectRevert(Runner.InvalidConfig.selector);
+        vm.expectRevert(Automator.InvalidConfig.selector);
         autoExit.setTWAPConfig(10, TWAPSeconds);
     }
 
@@ -170,7 +170,7 @@ contract AutoExitTest is IntegrationTestBase {
 
 
     function testUnauthorizedSetConfig() external {
-        vm.expectRevert(Runner.Unauthorized.selector);
+        vm.expectRevert(Automator.Unauthorized.selector);
         vm.prank(TEST_NFT_ACCOUNT);
         autoExit.configToken(TEST_NFT_2, AutoExit.PositionConfig(false, false, false, 0, 0, 0, 0));
     }
@@ -181,7 +181,7 @@ contract AutoExitTest is IntegrationTestBase {
     }
 
     function testInvalidConfig() external {
-        vm.expectRevert(Runner.InvalidConfig.selector);
+        vm.expectRevert(Automator.InvalidConfig.selector);
         vm.prank(TEST_NFT_ACCOUNT);
         autoExit.configToken(TEST_NFT, AutoExit.PositionConfig(true, false, false,  800000, -800000, 0, 0));
     }
@@ -195,7 +195,7 @@ contract AutoExitTest is IntegrationTestBase {
     }
 
     function testNonOperator() external {
-        vm.expectRevert(Runner.Unauthorized.selector);
+        vm.expectRevert(Automator.Unauthorized.selector);
         vm.prank(TEST_NFT_ACCOUNT);
         autoExit.execute(AutoExit.ExecuteParams(TEST_NFT, "", block.timestamp));
     }
@@ -248,7 +248,7 @@ contract AutoExitTest is IntegrationTestBase {
 
         // TWAPCheckFailed
         vm.prank(OPERATOR_ACCOUNT);
-        vm.expectRevert(Runner.TWAPCheckFailed.selector);
+        vm.expectRevert(Automator.TWAPCheckFailed.selector);
         autoExit.execute(AutoExit.ExecuteParams(TEST_NFT_2, _getWETHToDAISwapData(), block.timestamp));
     }
 

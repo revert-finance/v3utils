@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "./Runner.sol";
+import "./Automator.sol";
 
-/// @title RangeAdjust
-/// @notice Allows operator of RangeAdjust contract (Revert controlled bot) to change range for configured positions
+/// @title AutoRange
+/// @notice Allows operator of AutoRange contract (Revert controlled bot) to change range for configured positions
 /// Positions need to be approved (setApprovalForAll) for the contract and configured with configToken method
 /// When executed a new position is created and automatically configured the same way as the original position
-contract RangeAdjust is Runner {
+contract AutoRange is Automator {
 
     error NotConfigured();
     error NotReady();
@@ -28,7 +28,7 @@ contract RangeAdjust is Runner {
         uint64 token1SlippageX64
     );
 
-    constructor(INonfungiblePositionManager _npm, address _swapRouter, address _operator, uint32 _TWAPSeconds, uint16 _maxTWAPTickDifference) Runner(_npm, _swapRouter, _operator, _TWAPSeconds, _maxTWAPTickDifference) {
+    constructor(INonfungiblePositionManager _npm, address _swapRouter, address _operator, uint32 _TWAPSeconds, uint16 _maxTWAPTickDifference) Automator(_npm, _swapRouter, _operator, _TWAPSeconds, _maxTWAPTickDifference) {
     }
 
     // defines when and how a position can be changed by operator

@@ -13,7 +13,7 @@ import "v3-core/libraries/FullMath.sol";
 import "v3-periphery/interfaces/INonfungiblePositionManager.sol";
 import "v3-periphery/interfaces/external/IWETH9.sol";
 
-abstract contract Runner is Ownable {
+abstract contract Automator is Ownable {
 
     uint256 internal constant Q64 = 2 ** 64;
     uint256 internal constant Q96 = 2 ** 96;

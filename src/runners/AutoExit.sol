@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "./Runner.sol";
+import "./Automator.sol";
 
 /// @title AutoExit
 /// @notice Lets a v3 position to be automatically removed or swapped to the opposite token when it reaches a certain tick. 
 /// A revert controlled bot (operator) is responsible for the execution of optimized swaps (using external swap router)
 /// Positions need to be approved (approve or setApprovalForAll) for the contract and configured with configToken method
-contract AutoExit is Runner {
+contract AutoExit is Automator {
 
     error NoLiquidity();
     error NotConfigured();
@@ -34,7 +34,7 @@ contract AutoExit is Runner {
         uint64 token1SlippageX64
     );
 
-    constructor(INonfungiblePositionManager _npm, address _swapRouter, address _operator, uint32 _TWAPSeconds, uint16 _maxTWAPTickDifference) Runner(_npm, _swapRouter, _operator, _TWAPSeconds, _maxTWAPTickDifference) {
+    constructor(INonfungiblePositionManager _npm, address _swapRouter, address _operator, uint32 _TWAPSeconds, uint16 _maxTWAPTickDifference) Automator(_npm, _swapRouter, _operator, _TWAPSeconds, _maxTWAPTickDifference) {
     }
 
     // define how stoploss / limit should be handled
