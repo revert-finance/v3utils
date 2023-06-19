@@ -3,7 +3,7 @@ pragma solidity ^0.8.0;
 
 import "../../IntegrationTestBase.sol";
 
-import "../../../src/runners/AutoExit.sol";
+import "../../../src/automators/AutoExit.sol";
 
 contract AutoExitTest is IntegrationTestBase {
     
@@ -281,10 +281,10 @@ contract AutoExitTest is IntegrationTestBase {
 
         // fee stored for owner in contract (only WETH because WETH is target token)
         assertEq(WETH_ERC20.balanceOf(address(autoExit)) - contractWETHBalanceBefore, 1267257651391530);
-        assertEq(DAI.balanceOf(address(autoExit)) - contractDAIBalanceBefore, 0);
+        assertEq(DAI.balanceOf(address(autoExit)) - contractDAIBalanceBefore, 779194049850154725);
 
         // leftovers returned to owner
-        assertEq(DAI.balanceOf(TEST_NFT_2_ACCOUNT) - ownerDAIBalanceBefore, 311677619940061890346); // all available
+        assertEq(DAI.balanceOf(TEST_NFT_2_ACCOUNT) - ownerDAIBalanceBefore, 310898425890211735621); // all available
         assertEq(TEST_NFT_2_ACCOUNT.balance - ownerWETHBalanceBefore, 505635802905220511); // all available
     }
 

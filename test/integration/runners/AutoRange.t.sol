@@ -3,7 +3,7 @@ pragma solidity ^0.8.0;
 
 import "../../IntegrationTestBase.sol";
 
-import "../../../src/runners/AutoRange.sol";
+import "../../../src/automators/AutoRange.sol";
 
 import "v3-periphery/libraries/LiquidityAmounts.sol";
 

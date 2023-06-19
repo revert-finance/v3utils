@@ -4,7 +4,7 @@ pragma solidity ^0.8.0;
 import "./Automator.sol";
 
 /// @title AutoExit
-/// @notice Lets a v3 position to be automatically removed or swapped to the opposite token when it reaches a certain tick. 
+/// @notice Lets a v3 position to be automatically removed (limit order) or swapped to the opposite token (stop loss order) when it reaches a certain tick. 
 /// A revert controlled bot (operator) is responsible for the execution of optimized swaps (using external swap router)
 /// Positions need to be approved (approve or setApprovalForAll) for the contract and configured with configToken method
 contract AutoExit is Automator {
@@ -138,10 +138,11 @@ contract AutoExit is Automator {
             state.amount1 = state.isAbove ? state.amount1 - state.amountInDelta : state.amount1 + state.amountOutDelta;
         }
      
-        // protocol reward is removed only from target token (to incentivize optimal swap done by operator)
-        if (state.isAbove && state.isSwap || !state.isAbove && !state.isSwap) {
+        // when swap - protocol reward is removed only from target token (to incentivize optimal swap done by operator)
+        if (state.isAbove && state.isSwap || !state.isSwap) {
             state.amount0 -= state.amount0 * protocolRewardX64 / Q64;
-        } else {
+        }
+        if (!state.isAbove && state.isSwap || !state.isSwap) {
             state.amount1 -= state.amount1 * protocolRewardX64 / Q64;
         }
 
