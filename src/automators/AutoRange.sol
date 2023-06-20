@@ -119,6 +119,14 @@ contract AutoRange is Automator {
 
         if (state.currentTick < state.tickLower - config.lowerTickLimit || state.currentTick >= state.tickUpper + config.upperTickLimit) {
 
+            int24 tickSpacing = _getTickSpacing(state.fee);
+            int24 baseTick = state.currentTick - (((state.currentTick % tickSpacing) + tickSpacing) % tickSpacing);
+
+            // check if new range same as old range
+            if (baseTick + config.lowerTickDelta == state.tickLower && baseTick + config.upperTickDelta == state.tickUpper) {
+                revert SameRange();
+            }
+
             (state.amountInDelta, state.amountOutDelta) = _swap(params.swap0To1 ? IERC20(state.token0) : IERC20(state.token1), params.swap0To1 ? IERC20(state.token1) : IERC20(state.token0), params.amountIn, state.amountOutMin, params.swapData);
 
             state.amount0 = params.swap0To1 ? state.amount0 - state.amountInDelta : state.amount0 + state.amountOutDelta;
@@ -127,14 +135,6 @@ contract AutoRange is Automator {
             // max amount to add - removing max potential fees
             state.maxAddAmount0 = state.amount0 * Q64 / (protocolRewardX64 + Q64);
             state.maxAddAmount1 = state.amount1 * Q64 / (protocolRewardX64 + Q64);
-
-            int24 tickSpacing = _getTickSpacing(state.fee);
-            int24 baseTick = state.currentTick - (((state.currentTick % tickSpacing) + tickSpacing) % tickSpacing);
-
-            // check if new range same as old range
-            if (baseTick + config.lowerTickDelta == state.tickLower && baseTick + config.upperTickDelta == state.tickUpper) {
-                revert SameRange();
-            }
 
             INonfungiblePositionManager.MintParams memory mintParams = 
                 INonfungiblePositionManager.MintParams(
