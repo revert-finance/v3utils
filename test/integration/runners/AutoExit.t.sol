@@ -11,7 +11,7 @@ contract AutoExitTest is IntegrationTestBase {
 
     function setUp() external {
         _setupBase();
-        autoExit = new AutoExit(NPM, EX0x, OPERATOR_ACCOUNT, 60, 100);
+        autoExit = new AutoExit(NPM, EX0x, OPERATOR_ACCOUNT, 60, 100, uint64(Q64 / 400));
     }
 
     function _setConfig(
@@ -238,7 +238,7 @@ contract AutoExitTest is IntegrationTestBase {
     function testOracleCheck() external {
 
         // create range adjustor with more strict oracle config    
-        autoExit = new AutoExit(NPM, EX0x, OPERATOR_ACCOUNT, 60 * 30, 4);
+        autoExit = new AutoExit(NPM, EX0x, OPERATOR_ACCOUNT, 60 * 30, 4, uint64(Q64 / 400));
 
         vm.prank(TEST_NFT_2_ACCOUNT);
         NPM.setApprovalForAll(address(autoExit), true);

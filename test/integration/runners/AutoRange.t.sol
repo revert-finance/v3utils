@@ -14,7 +14,7 @@ contract AutoRangeTest is IntegrationTestBase {
     function setUp() external {
         _setupBase();
 
-        autoRange = new AutoRange(NPM, EX0x, OPERATOR_ACCOUNT, 60, 100);
+        autoRange = new AutoRange(NPM, EX0x, OPERATOR_ACCOUNT, 60, 100, uint64(Q64 / 400));
     }
 
     function testSetTWAPSeconds() external {
@@ -279,7 +279,7 @@ contract AutoRangeTest is IntegrationTestBase {
     function testOracleCheck() external {
 
         // create range adjustor with more strict oracle config    
-        autoRange = new AutoRange(NPM, EX0x, OPERATOR_ACCOUNT, 60 * 30, 4);
+        autoRange = new AutoRange(NPM, EX0x, OPERATOR_ACCOUNT, 60 * 30, 4, uint64(Q64 / 400));
 
         vm.prank(TEST_NFT_2_ACCOUNT);
         NPM.setApprovalForAll(address(autoRange), true);

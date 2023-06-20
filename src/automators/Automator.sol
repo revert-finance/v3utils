@@ -28,9 +28,8 @@ abstract contract Automator is Ownable {
 
     INonfungiblePositionManager public immutable nonfungiblePositionManager;
     IUniswapV3Factory public immutable factory;
-    IWETH9 immutable public weth;
-
-    uint64 immutable public protocolRewardX64 = uint64(Q64 / 400); // 0.25%
+    IWETH9 public immutable weth;
+    uint64 public immutable protocolRewardX64;
 
     // admin events
     event OperatorChanged(address newOperator);
@@ -43,7 +42,7 @@ abstract contract Automator is Ownable {
     uint16 public maxTWAPTickDifference;
     address public swapRouter;
 
-    constructor(INonfungiblePositionManager npm, address _swapRouter, address _operator, uint32 _TWAPSeconds, uint16 _maxTWAPTickDifference) {
+    constructor(INonfungiblePositionManager npm, address _swapRouter, address _operator, uint32 _TWAPSeconds, uint16 _maxTWAPTickDifference, uint64 _protocolRewardX64) {
 
         nonfungiblePositionManager = npm;
         weth = IWETH9(npm.WETH9());
@@ -61,6 +60,8 @@ abstract contract Automator is Ownable {
         TWAPSeconds = _TWAPSeconds;
         maxTWAPTickDifference = _maxTWAPTickDifference;
         emit TWAPConfigChanged(_TWAPSeconds, _maxTWAPTickDifference);
+
+        protocolRewardX64 = _protocolRewardX64;
     }
 
      /**

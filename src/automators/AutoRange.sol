@@ -28,7 +28,8 @@ contract AutoRange is Automator {
         uint64 token1SlippageX64
     );
 
-    constructor(INonfungiblePositionManager _npm, address _swapRouter, address _operator, uint32 _TWAPSeconds, uint16 _maxTWAPTickDifference) Automator(_npm, _swapRouter, _operator, _TWAPSeconds, _maxTWAPTickDifference) {
+    constructor(INonfungiblePositionManager _npm, address _swapRouter, address _operator, uint32 _TWAPSeconds, uint16 _maxTWAPTickDifference, uint64 _protocolRewardX64) 
+        Automator(_npm, _swapRouter, _operator, _TWAPSeconds, _maxTWAPTickDifference, _protocolRewardX64) {
     }
 
     // defines when and how a position can be changed by operator
