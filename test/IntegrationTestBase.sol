@@ -26,6 +26,7 @@ abstract contract IntegrationTestBase is Test {
     INonfungiblePositionManager constant NPM = INonfungiblePositionManager(0xC36442b4a4522E871399CD717aBDD847Ab11FE88);
 
     address EX0x = 0xDef1C0ded9bec7F1a1670819833240f027b25EfF; // 0x exchange proxy
+    address UNIVERSAL_ROUTER = 0x3fC91A3afd70395Cd496C647d5a6CC9D4B2b7FAD; // uniswap universal router
     address UNISWAP_ROUTER = 0xE592427A0AEce92De3Edee1F18E0157C05861564; // uniswap router 1.0
 
     // DAI/USDC 0.05% - one sided only DAI - current tick is near -276326 - no liquidity (-276320/-276310)
@@ -68,4 +69,11 @@ abstract contract IntegrationTestBase is Test {
 
         v3utils = new V3Utils(NPM, EX0x);
     }  
+
+    function _getSwapRouterOptions() internal returns (address[] memory swapRouterOptions) {
+        swapRouterOptions = new address[](3);
+        swapRouterOptions[0] = EX0x;
+        swapRouterOptions[1] = UNIVERSAL_ROUTER;
+        swapRouterOptions[2] = UNISWAP_ROUTER;
+    }
 }

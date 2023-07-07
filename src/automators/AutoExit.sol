@@ -34,8 +34,8 @@ contract AutoExit is Automator {
         uint64 token1SlippageX64
     );
 
-    constructor(INonfungiblePositionManager _npm, address _swapRouter, address _operator, uint32 _TWAPSeconds, uint16 _maxTWAPTickDifference, uint64 _protocolRewardX64) 
-        Automator(_npm, _swapRouter, _operator, _TWAPSeconds, _maxTWAPTickDifference,  _protocolRewardX64) {
+    constructor(INonfungiblePositionManager _npm, address _operator, uint32 _TWAPSeconds, uint16 _maxTWAPTickDifference, uint64 _protocolRewardX64, address[] memory _swapRouterOptions) 
+        Automator(_npm, _operator, _TWAPSeconds, _maxTWAPTickDifference,  _protocolRewardX64, _swapRouterOptions) {
     }
 
     // define how stoploss / limit should be handled
@@ -59,6 +59,7 @@ contract AutoExit is Automator {
     struct ExecuteParams {
         uint256 tokenId; // tokenid to process
         bytes swapData; // if its a swap order - must include swap data
+        uint128 liquidity; // liquidity the calculations are based on
         uint256 deadline; // for uniswap operations - operator promises fair value
     }
 
@@ -94,7 +95,7 @@ contract AutoExit is Automator {
         }
 
         ExecuteState memory state;
-        PositionConfig storage config = positionConfigs[params.tokenId];
+        PositionConfig memory config = positionConfigs[params.tokenId];
 
         if (!config.isActive) {
             revert NotConfigured();
@@ -106,6 +107,9 @@ contract AutoExit is Automator {
         // so can be executed only once
         if (state.liquidity == 0) {
             revert NoLiquidity();
+        }
+        if (state.liquidity != params.liquidity) {
+            revert LiquidityChanged();
         }
 
         state.pool = _getPool(state.token0, state.token1, state.fee);

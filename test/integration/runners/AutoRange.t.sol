@@ -13,8 +13,7 @@ contract AutoRangeTest is IntegrationTestBase {
 
     function setUp() external {
         _setupBase();
-
-        autoRange = new AutoRange(NPM, EX0x, OPERATOR_ACCOUNT, 60, 100, uint64(Q64 / 400));
+        autoRange = new AutoRange(NPM, OPERATOR_ACCOUNT, 60, 100, uint64(Q64 / 400), _getSwapRouterOptions());
     }
 
     function testSetTWAPSeconds() external {
@@ -23,7 +22,7 @@ contract AutoRangeTest is IntegrationTestBase {
         assertEq(autoRange.TWAPSeconds(), 120);
 
         vm.expectRevert(Automator.InvalidConfig.selector);
-        autoRange.setTWAPConfig(maxTWAPTickDifference, 60);
+        autoRange.setTWAPConfig(maxTWAPTickDifference, 30);
     }
 
     function testSetMaxTWAPTickDifference() external {
@@ -32,7 +31,7 @@ contract AutoRangeTest is IntegrationTestBase {
         assertEq(autoRange.maxTWAPTickDifference(), 5);
 
         vm.expectRevert(Automator.InvalidConfig.selector);
-        autoRange.setTWAPConfig(10, TWAPSeconds);
+        autoRange.setTWAPConfig(600, TWAPSeconds);
     }
 
     function testSetOperator() external {
@@ -70,7 +69,7 @@ contract AutoRangeTest is IntegrationTestBase {
     function testNonOperator() external {
         vm.expectRevert(Automator.Unauthorized.selector);
         vm.prank(TEST_NFT_ACCOUNT);
-        autoRange.execute(AutoRange.ExecuteParams(TEST_NFT, false, 0, "", block.timestamp));
+        autoRange.execute(AutoRange.ExecuteParams(TEST_NFT, false, 0, "", 0, block.timestamp));
     }
 
     function testAdjustWithoutApprove() external {
@@ -78,11 +77,13 @@ contract AutoRangeTest is IntegrationTestBase {
         vm.prank(TEST_NFT_2_ACCOUNT);
         autoRange.configToken(TEST_NFT_2, AutoRange.PositionConfig(0, 0, 0, 1, 0, 0));
 
+        (, , , , , , , uint128 liquidity, , , , ) = NPM.positions(TEST_NFT_2);
+
         // fails when sending NFT
         vm.expectRevert(abi.encodePacked("Not approved"));
         
         vm.prank(OPERATOR_ACCOUNT);
-        autoRange.execute(AutoRange.ExecuteParams(TEST_NFT_2, false, 0, "", block.timestamp));
+        autoRange.execute(AutoRange.ExecuteParams(TEST_NFT_2, false, 0, "", liquidity, block.timestamp));
     }
 
     function testAdjustWithoutConfig() external {
@@ -92,7 +93,7 @@ contract AutoRangeTest is IntegrationTestBase {
 
         vm.expectRevert(AutoRange.NotConfigured.selector);
         vm.prank(OPERATOR_ACCOUNT);
-        autoRange.execute(AutoRange.ExecuteParams(TEST_NFT, false, 0, "", block.timestamp));
+        autoRange.execute(AutoRange.ExecuteParams(TEST_NFT, false, 0, "", 0, block.timestamp));
     }
 
     function testAdjustNotAdjustable() external {
@@ -102,10 +103,12 @@ contract AutoRangeTest is IntegrationTestBase {
         vm.prank(TEST_NFT_2_ACCOUNT);
         autoRange.configToken(TEST_NFT_2_A, AutoRange.PositionConfig(0, 0, 0, 60, uint64(Q64 / 100), uint64(Q64 / 100))); // 1% max fee, 1% max slippage
 
+        (, , , , , , , uint128 liquidity, , , , ) = NPM.positions(TEST_NFT_2_A);
+
         // in range position cant be adjusted
         vm.expectRevert(AutoRange.NotReady.selector);
         vm.prank(OPERATOR_ACCOUNT);
-        autoRange.execute(AutoRange.ExecuteParams(TEST_NFT_2_A, false, 0, "", block.timestamp));
+        autoRange.execute(AutoRange.ExecuteParams(TEST_NFT_2_A, false, 0, "", liquidity, block.timestamp));
     }
 
     function testAdjustOutOfRange() external {
@@ -115,10 +118,25 @@ contract AutoRangeTest is IntegrationTestBase {
         vm.prank(TEST_NFT_2_ACCOUNT);
         autoRange.configToken(TEST_NFT_2, AutoRange.PositionConfig(0, 0, -int32(uint32(type(uint24).max)), int32(uint32(type(uint24).max)), 0, 0)); // 1% max fee, 1% max slippage
 
+        (, , , , , , , uint128 liquidity, , , , ) = NPM.positions(TEST_NFT_2);
+
         // will be reverted because range Arithmetic over/underflow
         vm.expectRevert(abi.encodePacked("SafeCast: value doesn't fit in 24 bits"));
         vm.prank(OPERATOR_ACCOUNT);
-        autoRange.execute(AutoRange.ExecuteParams(TEST_NFT_2, false, 0, "", block.timestamp));
+        autoRange.execute(AutoRange.ExecuteParams(TEST_NFT_2, false, 0, "", liquidity, block.timestamp));
+    }
+
+    function testLiquidityChanged() external {
+        vm.prank(TEST_NFT_2_ACCOUNT);
+        NPM.setApprovalForAll(address(autoRange), true);
+
+        vm.prank(TEST_NFT_2_ACCOUNT);
+        autoRange.configToken(TEST_NFT_2, AutoRange.PositionConfig(0, 0, -int32(uint32(type(uint24).max)), int32(uint32(type(uint24).max)), 0, 0)); // 1% max fee, 1% max slippage
+
+        // will be reverted because LiquidityChanged
+        vm.expectRevert(Automator.LiquidityChanged.selector);
+        vm.prank(OPERATOR_ACCOUNT);
+        autoRange.execute(AutoRange.ExecuteParams(TEST_NFT_2, false, 0, "", 0, block.timestamp));
     }
 
     function testAdjustWithoutSwap() external {
@@ -141,13 +159,16 @@ contract AutoRangeTest is IntegrationTestBase {
         uint ownerDAIBalanceBefore = DAI.balanceOf(TEST_NFT_2_ACCOUNT);
         uint ownerWETHBalanceBefore = TEST_NFT_2_ACCOUNT.balance;
 
+        (, , , , , , , uint128 liquidity, , , , ) = NPM.positions(TEST_NFT_2);
+
         vm.prank(OPERATOR_ACCOUNT);
-        autoRange.execute(AutoRange.ExecuteParams(TEST_NFT_2, false, 0, "", block.timestamp)); // max fee with 1% is 7124618988448545
+        autoRange.execute(AutoRange.ExecuteParams(TEST_NFT_2, false, 0, "", liquidity, block.timestamp)); // max fee with 1% is 7124618988448545
 
         // is not adjustable yet because config was removed
+        (, , , , , , , liquidity, , , , ) = NPM.positions(TEST_NFT_2);
         vm.prank(OPERATOR_ACCOUNT);
         vm.expectRevert(AutoRange.NotConfigured.selector);
-        autoRange.execute(AutoRange.ExecuteParams(TEST_NFT_2, false, 0, "", block.timestamp));
+        autoRange.execute(AutoRange.ExecuteParams(TEST_NFT_2, false, 0, "", liquidity, block.timestamp));
 
         // protocol fee
         assertEq(DAI.balanceOf(address(autoRange)) - protocolDAIBalanceBefore, 777250922543795237);
@@ -163,15 +184,18 @@ contract AutoRangeTest is IntegrationTestBase {
         // new NFT is latest NFT - because of the order they are added
         uint tokenId = NPM.tokenOfOwnerByIndex(TEST_NFT_2_ACCOUNT, count - 1);
 
+        (, , , , , , , liquidity, , , , ) = NPM.positions(tokenId);
+
         // is not adjustable yet because in range
         vm.prank(OPERATOR_ACCOUNT);
         vm.expectRevert(AutoRange.NotReady.selector);
-        autoRange.execute(AutoRange.ExecuteParams(tokenId, false, 0, "", block.timestamp));
+        autoRange.execute(AutoRange.ExecuteParams(tokenId, false, 0, "", liquidity, block.timestamp));
 
         // newly minted token
         assertEq(tokenId, 309207);
 
-        (, , , , , int24 tickLowerAfter, int24 tickUpperAfter , uint128 liquidity, , , , ) = NPM.positions(tokenId);
+        (, , , , , , , liquidity, , , , ) = NPM.positions(tokenId);
+        (, , , , , int24 tickLowerAfter, int24 tickUpperAfter , , , , , ) = NPM.positions(tokenId);
         (, , address token0 , address token1 , uint24 fee , , , uint128 liquidityOld, , , , ) = NPM.positions(TEST_NFT_2);
 
         IUniswapV3Pool pool = IUniswapV3Pool(PoolAddress.computeAddress(FACTORY, PoolAddress.getPoolKey(token0, token1, fee)));
@@ -190,6 +214,21 @@ contract AutoRangeTest is IntegrationTestBase {
 
         assertEq(liquidity, 3667918618704675260835);
         assertEq(liquidityOld, 0);
+    }
+
+    function testAdjustWithTooLargeSwap() external {
+        
+        vm.prank(TEST_NFT_2_ACCOUNT);
+        NPM.setApprovalForAll(address(autoRange), true);
+
+        vm.prank(TEST_NFT_2_ACCOUNT);
+        autoRange.configToken(TEST_NFT_2, AutoRange.PositionConfig(0, 0, 0, 60, uint64(Q64 / 100), uint64(Q64 / 100))); // 1% max fee, 1% max slippage
+
+        (, , , , , , , uint128 liquidity, , , , ) = NPM.positions(TEST_NFT_2);
+
+        vm.expectRevert(AutoRange.SwapAmountTooLarge.selector);
+        vm.prank(OPERATOR_ACCOUNT);
+        autoRange.execute(AutoRange.ExecuteParams(TEST_NFT_2, false, type(uint).max, _get03WETHToDAISwapData(), liquidity, block.timestamp));
     }
 
     function testAdjustWithSwap() external {
@@ -211,8 +250,10 @@ contract AutoRangeTest is IntegrationTestBase {
         uint ownerDAIBalanceBefore = DAI.balanceOf(TEST_NFT_2_ACCOUNT);
         uint ownerWETHBalanceBefore = TEST_NFT_2_ACCOUNT.balance;
 
+        (, , , , , , , uint128 liquidity, , , , ) = NPM.positions(TEST_NFT_2);
+
         vm.prank(OPERATOR_ACCOUNT);
-        autoRange.execute(AutoRange.ExecuteParams(TEST_NFT_2, false, 300000000000000000, _get03WETHToDAISwapData(), block.timestamp)); // max fee with 1% is 7124618988448545
+        autoRange.execute(AutoRange.ExecuteParams(TEST_NFT_2, false, 300000000000000000, _get03WETHToDAISwapData(), liquidity, block.timestamp)); // max fee with 1% is 7124618988448545
 
         // protocol fee
         assertEq(DAI.balanceOf(address(autoRange)) - protocolDAIBalanceBefore, 1913211476963758022);
@@ -230,7 +271,8 @@ contract AutoRangeTest is IntegrationTestBase {
         // newly minted token
         assertEq(tokenId, 309207);
 
-        (, , , , , int24 tickLowerAfter, int24 tickUpperAfter , uint128 liquidity, , , , ) = NPM.positions(tokenId);
+        (, , , , , , , liquidity, , , , ) = NPM.positions(tokenId);
+        (, , , , , int24 tickLowerAfter, int24 tickUpperAfter , , , , , ) = NPM.positions(tokenId);
         (, , address token0 , address token1 , uint24 fee , , , uint128 liquidityOld, , , , ) = NPM.positions(TEST_NFT_2);
 
         IUniswapV3Pool pool = IUniswapV3Pool(PoolAddress.computeAddress(FACTORY, PoolAddress.getPoolKey(token0, token1, fee)));
@@ -260,9 +302,11 @@ contract AutoRangeTest is IntegrationTestBase {
         vm.prank(TEST_NFT_2_ACCOUNT);
         autoRange.configToken(TEST_NFT_2, AutoRange.PositionConfig(-100000, -100000, 0, 60, uint64(Q64 / 100), uint64(Q64 / 100)));
 
+        (, , , , , , , uint128 liquidity, , , , ) = NPM.positions(TEST_NFT_2);
+
         // first adjust ok
         vm.prank(OPERATOR_ACCOUNT);
-        autoRange.execute(AutoRange.ExecuteParams(TEST_NFT_2, false, 0, "", block.timestamp));
+        autoRange.execute(AutoRange.ExecuteParams(TEST_NFT_2, false, 0, "", liquidity, block.timestamp));
 
         uint count = NPM.balanceOf(TEST_NFT_2_ACCOUNT);
         uint tokenId = NPM.tokenOfOwnerByIndex(TEST_NFT_2_ACCOUNT, count - 1);
@@ -270,16 +314,18 @@ contract AutoRangeTest is IntegrationTestBase {
         // newly minted token
         assertEq(tokenId, 309207);
 
+        (, , , , , , , liquidity, , , , ) = NPM.positions(tokenId);
+
         // second ajust leads to same range error
         vm.prank(OPERATOR_ACCOUNT);
         vm.expectRevert(AutoRange.SameRange.selector);
-        autoRange.execute(AutoRange.ExecuteParams(tokenId, false, 0, "", block.timestamp));
+        autoRange.execute(AutoRange.ExecuteParams(tokenId, false, 0, "", liquidity, block.timestamp));
     }
 
     function testOracleCheck() external {
 
         // create range adjustor with more strict oracle config    
-        autoRange = new AutoRange(NPM, EX0x, OPERATOR_ACCOUNT, 60 * 30, 4, uint64(Q64 / 400));
+        autoRange = new AutoRange(NPM, OPERATOR_ACCOUNT, 60 * 30, 4, uint64(Q64 / 400), _getSwapRouterOptions());
 
         vm.prank(TEST_NFT_2_ACCOUNT);
         NPM.setApprovalForAll(address(autoRange), true);
@@ -287,10 +333,12 @@ contract AutoRangeTest is IntegrationTestBase {
         vm.prank(TEST_NFT_2_ACCOUNT);
         autoRange.configToken(TEST_NFT_2, AutoRange.PositionConfig(-100000, -100000, 0, 60, uint64(Q64 / 100), uint64(Q64 / 100)));
 
+        (, , , , , , , uint128 liquidity, , , , ) = NPM.positions(TEST_NFT_2);
+
         // TWAPCheckFailed
         vm.prank(OPERATOR_ACCOUNT);
         vm.expectRevert(Automator.TWAPCheckFailed.selector);
-        autoRange.execute(AutoRange.ExecuteParams(TEST_NFT_2, false, 0, "", block.timestamp));
+        autoRange.execute(AutoRange.ExecuteParams(TEST_NFT_2, false, 0, "", liquidity, block.timestamp));
     }
 
     function _get03WETHToDAISwapData() internal view returns (bytes memory) {

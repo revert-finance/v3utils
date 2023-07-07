@@ -18,6 +18,9 @@ abstract contract Automator is Ownable {
     uint256 internal constant Q64 = 2 ** 64;
     uint256 internal constant Q96 = 2 ** 96;
 
+    uint32 internal constant MIN_TWAP_SECONDS = 60; // 1 minute
+    uint32 internal constant MAX_TWAP_TICK_DIFFERENCE = 200; // 2%
+
     error Unauthorized();
     error InvalidConfig();
     error TWAPCheckFailed();
@@ -25,58 +28,63 @@ abstract contract Automator is Ownable {
     error NotWETH();
     error SwapFailed();
     error SlippageError();
+    error LiquidityChanged();
 
     INonfungiblePositionManager public immutable nonfungiblePositionManager;
     IUniswapV3Factory public immutable factory;
     IWETH9 public immutable weth;
     uint64 public immutable protocolRewardX64;
 
+    // preconfigured options for swap routers
+    address public immutable swapRouterOption0;
+    address public immutable swapRouterOption1;
+    address public immutable swapRouterOption2;
+
     // admin events
     event OperatorChanged(address newOperator);
     event TWAPConfigChanged(uint32 TWAPSeconds, uint16 maxTWAPTickDifference);
-    event SwapRouterChanged(address newSwapRouter);
+    event SwapRouterChanged(uint8 swapRouterIndex);
 
     // configurable by owner
     address public operator;
     uint32 public TWAPSeconds;
     uint16 public maxTWAPTickDifference;
-    address public swapRouter;
+    uint8 public swapRouterIndex;
 
-    constructor(INonfungiblePositionManager npm, address _swapRouter, address _operator, uint32 _TWAPSeconds, uint16 _maxTWAPTickDifference, uint64 _protocolRewardX64) {
+    constructor(INonfungiblePositionManager npm, address _operator, uint32 _TWAPSeconds, uint16 _maxTWAPTickDifference, uint64 _protocolRewardX64, address[] memory _swapRouterOptions) {
 
         nonfungiblePositionManager = npm;
         weth = IWETH9(npm.WETH9());
         factory = IUniswapV3Factory(npm.factory());
 
-        swapRouter = _swapRouter;
-        emit SwapRouterChanged(_swapRouter);
+        // hardcoded 3 options for swap routers
+        swapRouterOption0 = _swapRouterOptions[0];
+        swapRouterOption1 = _swapRouterOptions[1];
+        swapRouterOption2 = _swapRouterOptions[2];
+
+        emit SwapRouterChanged(0);
 
         operator = _operator;
         emit OperatorChanged(_operator);
 
-        if (_maxTWAPTickDifference > uint16(type(int16).max) || _TWAPSeconds == 0) {
-            revert InvalidConfig();
-        }
-        TWAPSeconds = _TWAPSeconds;
-        maxTWAPTickDifference = _maxTWAPTickDifference;
-        emit TWAPConfigChanged(_TWAPSeconds, _maxTWAPTickDifference);
+        setTWAPConfig(_maxTWAPTickDifference, _TWAPSeconds);
 
         protocolRewardX64 = _protocolRewardX64;
     }
 
      /**
      * @notice Owner controlled function to change swap router (onlyOwner)
-     * @param _swapRouter new swap router
+     * @param _swapRouterIndex new swap router index
      */
-    function setSwapRouter(address _swapRouter) external onlyOwner {
+    function setSwapRouter(uint8 _swapRouterIndex) external onlyOwner {
 
-        // don't let this ever be possible - it would enable owner to steal all approved NFTs
-        if (swapRouter == address(nonfungiblePositionManager)) {
+        // only allow preconfigured routers
+        if (_swapRouterIndex > 2) {
             revert InvalidConfig();
         }
 
-        emit SwapRouterChanged(_swapRouter);
-        swapRouter = _swapRouter;
+        emit SwapRouterChanged(_swapRouterIndex);
+        swapRouterIndex = _swapRouterIndex;
     }
 
     /**
@@ -91,11 +99,11 @@ abstract contract Automator is Ownable {
     /**
      * @notice Owner controlled function to increase TWAPSeconds / decrease maxTWAPTickDifference
      */
-    function setTWAPConfig(uint16 _maxTWAPTickDifference, uint32 _TWAPSeconds) external onlyOwner {
-        if (_TWAPSeconds < TWAPSeconds) {
+    function setTWAPConfig(uint16 _maxTWAPTickDifference, uint32 _TWAPSeconds) public onlyOwner {
+        if (_TWAPSeconds < MIN_TWAP_SECONDS) {
             revert InvalidConfig();
         }
-        if (_maxTWAPTickDifference > maxTWAPTickDifference) {
+        if (_maxTWAPTickDifference > MAX_TWAP_TICK_DIFFERENCE) {
             revert InvalidConfig();
         }
         emit TWAPConfigChanged(_TWAPSeconds, _maxTWAPTickDifference);
@@ -105,14 +113,28 @@ abstract contract Automator is Ownable {
     
 
     /**
-     * @notice Withdraws token balance for a address and token
+     * @notice Withdraws token balance
      * @param token Address of token to withdraw
-     * @param to Address to send t
+     * @param to Address to send to
      */
     function withdrawBalance(address token, address to) external onlyOwner {
         uint256 balance = IERC20(token).balanceOf(address(this));
         if (balance > 0) {
             _transferToken(to, IERC20(token), balance, true);
+        }
+    }
+
+    /**
+     * @notice Withdraws ETH balance
+     * @param to Address to send to
+     */
+    function withdrawETH(address to) external onlyOwner {
+        uint256 balance = address(this).balance;
+        if (balance > 0) {
+            (bool sent,) = to.call{value: balance}("");
+            if (!sent) {
+                revert EtherSendFailed();
+            }
         }
     }
 
@@ -152,7 +174,8 @@ abstract contract Automator is Ownable {
             // approve needed amount
             SafeERC20.safeApprove(tokenIn, allowanceTarget, amountIn);
 
-            // execute swap
+            // execute swap with configured router
+            address swapRouter = swapRouterIndex == 0 ? swapRouterOption0 : (swapRouterIndex == 1 ? swapRouterOption1 : swapRouterOption2);
             (bool success,) = swapRouter.call(data);
             if (!success) {
                 revert SwapFailed();

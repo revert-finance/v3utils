@@ -13,6 +13,7 @@ contract AutoRange is Automator {
     error NotReady();
     error SameRange();
     error NotSupportedFeeTier();
+    error SwapAmountTooLarge();
 
     event RangeChanged(
         uint256 indexed oldTokenId, 
@@ -28,8 +29,8 @@ contract AutoRange is Automator {
         uint64 token1SlippageX64
     );
 
-    constructor(INonfungiblePositionManager _npm, address _swapRouter, address _operator, uint32 _TWAPSeconds, uint16 _maxTWAPTickDifference, uint64 _protocolRewardX64) 
-        Automator(_npm, _swapRouter, _operator, _TWAPSeconds, _maxTWAPTickDifference, _protocolRewardX64) {
+    constructor(INonfungiblePositionManager _npm, address _operator, uint32 _TWAPSeconds, uint16 _maxTWAPTickDifference, uint64 _protocolRewardX64, address[] memory _swapRouterOptions) 
+        Automator(_npm, _operator, _TWAPSeconds, _maxTWAPTickDifference, _protocolRewardX64, _swapRouterOptions) {
     }
 
     // defines when and how a position can be changed by operator
@@ -53,6 +54,7 @@ contract AutoRange is Automator {
         bool swap0To1;
         uint256 amountIn; // if this is set to 0 no swap happens
         bytes swapData;
+        uint128 liquidity; // liquidity the calculations are based on
         uint256 deadline; // for uniswap operations - operator promises fair value
     }
 
@@ -100,16 +102,24 @@ contract AutoRange is Automator {
         }
 
         ExecuteState memory state;
-        PositionConfig storage config = positionConfigs[params.tokenId];
+        PositionConfig memory config = positionConfigs[params.tokenId];
 
         if (config.lowerTickDelta == config.upperTickDelta) {
             revert NotConfigured();
         }
 
-          // get position info
+        // get position info
         (,, state.token0, state.token1, state.fee, state.tickLower, state.tickUpper, state.liquidity, , , , ) =  nonfungiblePositionManager.positions(params.tokenId);
 
+        if (state.liquidity != params.liquidity) {
+            revert LiquidityChanged();
+        }
+
         (state.amount0, state.amount1) = _decreaseFullLiquidityAndCollect(params.tokenId, state.liquidity, params.deadline);
+
+        if (params.swap0To1 && params.amountIn > state.amount0 || !params.swap0To1 && params.amountIn > state.amount1) {
+            revert SwapAmountTooLarge();
+        }
 
         // get pool info
         state.pool = _getPool(state.token0, state.token1, state.fee);
