@@ -10,8 +10,6 @@ import "./Automator.sol";
 contract AutoExit is Automator {
 
     error NoLiquidity();
-    error NotConfigured();
-    error NotReady();
     error MissingSwapData();
 
     event Executed(
@@ -60,6 +58,8 @@ contract AutoExit is Automator {
         uint256 tokenId; // tokenid to process
         bytes swapData; // if its a swap order - must include swap data
         uint128 liquidity; // liquidity the calculations are based on
+        uint256 amountRemoveMin0; // min amount to be removed from liquidity
+        uint256 amountRemoveMin1; // min amount to be removed from liquidity
         uint256 deadline; // for uniswap operations - operator promises fair value
     }
 
@@ -90,7 +90,7 @@ contract AutoExit is Automator {
      */
     function execute(ExecuteParams memory params) external {
 
-        if (msg.sender != operator) {
+        if (!operators[msg.sender]) {
             revert Unauthorized();
         }
 
@@ -124,7 +124,7 @@ contract AutoExit is Automator {
         state.isSwap = !state.isAbove && config.token0Swap || state.isAbove && config.token1Swap;
        
         // decrease full liquidity for given position - and return fees as well
-        (state.amount0, state.amount1) = _decreaseFullLiquidityAndCollect(params.tokenId, state.liquidity, params.deadline);
+        (state.amount0, state.amount1) = _decreaseFullLiquidityAndCollect(params.tokenId, state.liquidity, params.amountRemoveMin0, params.amountRemoveMin1, params.deadline);
 
         // swap to other token
         if (state.isSwap) {

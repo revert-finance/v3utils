@@ -18,9 +18,11 @@ abstract contract Automator is Ownable {
     uint256 internal constant Q64 = 2 ** 64;
     uint256 internal constant Q96 = 2 ** 96;
 
-    uint32 internal constant MIN_TWAP_SECONDS = 60; // 1 minute
-    uint32 internal constant MAX_TWAP_TICK_DIFFERENCE = 200; // 2%
+    uint32 public constant MIN_TWAP_SECONDS = 60; // 1 minute
+    uint32 public constant MAX_TWAP_TICK_DIFFERENCE = 200; // 2%
 
+    error NotConfigured();
+    error NotReady();
     error Unauthorized();
     error InvalidConfig();
     error TWAPCheckFailed();
@@ -41,15 +43,15 @@ abstract contract Automator is Ownable {
     address public immutable swapRouterOption2;
 
     // admin events
-    event OperatorChanged(address newOperator);
+    event OperatorChanged(address newOperator, bool active);
     event TWAPConfigChanged(uint32 TWAPSeconds, uint16 maxTWAPTickDifference);
     event SwapRouterChanged(uint8 swapRouterIndex);
 
     // configurable by owner
-    address public operator;
+    mapping(address => bool) public operators;
     uint32 public TWAPSeconds;
     uint16 public maxTWAPTickDifference;
-    uint8 public swapRouterIndex;
+    uint8 public swapRouterIndex; // default is 0
 
     constructor(INonfungiblePositionManager npm, address _operator, uint32 _TWAPSeconds, uint16 _maxTWAPTickDifference, uint64 _protocolRewardX64, address[] memory _swapRouterOptions) {
 
@@ -64,8 +66,7 @@ abstract contract Automator is Ownable {
 
         emit SwapRouterChanged(0);
 
-        operator = _operator;
-        emit OperatorChanged(_operator);
+        setOperator(_operator, true);
 
         setTWAPConfig(_maxTWAPTickDifference, _TWAPSeconds);
 
@@ -88,12 +89,13 @@ abstract contract Automator is Ownable {
     }
 
     /**
-     * @notice Owner controlled function to change operator address
-     * @param _operator new operator
+     * @notice Owner controlled function to activate/deactivate operator address
+     * @param _operator operator
+     * @param _active active or not
      */
-    function setOperator(address _operator) external onlyOwner {
-        emit OperatorChanged(_operator);
-        operator = _operator;
+    function setOperator(address _operator, bool _active) public onlyOwner {
+        emit OperatorChanged(_operator, _active);
+        operators[_operator] = _active;
     }
 
     /**
@@ -114,13 +116,17 @@ abstract contract Automator is Ownable {
 
     /**
      * @notice Withdraws token balance
-     * @param token Address of token to withdraw
+     * @param tokens Addresses of tokens to withdraw
      * @param to Address to send to
      */
-    function withdrawBalance(address token, address to) external onlyOwner {
-        uint256 balance = IERC20(token).balanceOf(address(this));
-        if (balance > 0) {
-            _transferToken(to, IERC20(token), balance, true);
+    function withdrawBalances(address[] calldata tokens, address to) external onlyOwner {
+        uint i;
+        uint count = tokens.length;
+        for(;i < count;++i) {
+            uint256 balance = IERC20(tokens[i]).balanceOf(address(this));
+            if (balance > 0) {
+                _transferToken(to, IERC20(tokens[i]), balance, true);
+            }
         }
     }
 
@@ -237,14 +243,14 @@ abstract contract Automator is Ownable {
             );
     }
 
-    function _decreaseFullLiquidityAndCollect(uint256 tokenId, uint128 liquidity, uint256 deadline) internal returns (uint256 amount0, uint256 amount1) {
+    function _decreaseFullLiquidityAndCollect(uint256 tokenId, uint128 liquidity, uint256 amountRemoveMin0, uint256 amountRemoveMin1, uint256 deadline) internal returns (uint256 amount0, uint256 amount1) {
        if (liquidity > 0) {
             (amount0, amount1) = nonfungiblePositionManager.decreaseLiquidity(
                     INonfungiblePositionManager.DecreaseLiquidityParams(
                         tokenId,
                         liquidity,
-                        0,
-                        0,
+                        amountRemoveMin0,
+                        amountRemoveMin1,
                         deadline
                     )
                 );

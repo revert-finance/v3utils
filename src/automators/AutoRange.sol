@@ -9,8 +9,6 @@ import "./Automator.sol";
 /// When executed a new position is created and automatically configured the same way as the original position
 contract AutoRange is Automator {
 
-    error NotConfigured();
-    error NotReady();
     error SameRange();
     error NotSupportedFeeTier();
     error SwapAmountTooLarge();
@@ -55,6 +53,8 @@ contract AutoRange is Automator {
         uint256 amountIn; // if this is set to 0 no swap happens
         bytes swapData;
         uint128 liquidity; // liquidity the calculations are based on
+        uint256 amountRemoveMin0; // min amount to be removed from liquidity
+        uint256 amountRemoveMin1; // min amount to be removed from liquidity
         uint256 deadline; // for uniswap operations - operator promises fair value
     }
 
@@ -97,7 +97,7 @@ contract AutoRange is Automator {
      */
     function execute(ExecuteParams memory params) external {
 
-        if (msg.sender != operator) {
+        if (!operators[msg.sender]) {
             revert Unauthorized();
         }
 
@@ -115,7 +115,7 @@ contract AutoRange is Automator {
             revert LiquidityChanged();
         }
 
-        (state.amount0, state.amount1) = _decreaseFullLiquidityAndCollect(params.tokenId, state.liquidity, params.deadline);
+        (state.amount0, state.amount1) = _decreaseFullLiquidityAndCollect(params.tokenId, state.liquidity, params.amountRemoveMin0, params.amountRemoveMin1, params.deadline);
 
         if (params.swap0To1 && params.amountIn > state.amount0 || !params.swap0To1 && params.amountIn > state.amount1) {
             revert SwapAmountTooLarge();
