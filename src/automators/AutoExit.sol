@@ -32,8 +32,8 @@ contract AutoExit is Automator {
         uint64 token1SlippageX64
     );
 
-    constructor(INonfungiblePositionManager _npm, address _operator, uint32 _TWAPSeconds, uint16 _maxTWAPTickDifference, uint64 _protocolRewardX64, address[] memory _swapRouterOptions) 
-        Automator(_npm, _operator, _TWAPSeconds, _maxTWAPTickDifference,  _protocolRewardX64, _swapRouterOptions) {
+    constructor(INonfungiblePositionManager _npm, address _operator, address _withdrawer, uint32 _TWAPSeconds, uint16 _maxTWAPTickDifference, uint64 _protocolRewardX64, address[] memory _swapRouterOptions) 
+        Automator(_npm, _operator, _withdrawer, _TWAPSeconds, _maxTWAPTickDifference,  _protocolRewardX64, _swapRouterOptions) {
     }
 
     // define how stoploss / limit should be handled

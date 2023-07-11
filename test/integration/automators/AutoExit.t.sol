@@ -11,7 +11,7 @@ contract AutoExitTest is IntegrationTestBase {
 
     function setUp() external {
         _setupBase();
-        autoExit = new AutoExit(NPM, OPERATOR_ACCOUNT, 60, 100, uint64(Q64 / 400), _getSwapRouterOptions());
+        autoExit = new AutoExit(NPM, OPERATOR_ACCOUNT, WITHDRAWER_ACCOUNT, 60, 100, uint64(Q64 / 400), _getSwapRouterOptions());
     }
 
     function _setConfig(
@@ -104,6 +104,7 @@ contract AutoExitTest is IntegrationTestBase {
         address[] memory addresses = new address[](2);
         addresses[0] = address(DAI);
         addresses[1] = address(USDC);
+        vm.prank(WITHDRAWER_ACCOUNT); 
         autoExit.withdrawBalances(addresses, address(this));
         uint balanceAfter = DAI.balanceOf(address(this));
 
@@ -136,6 +137,7 @@ contract AutoExitTest is IntegrationTestBase {
         // protocol fee
         balanceBefore = USDC.balanceOf(address(this));
 
+        vm.prank(WITHDRAWER_ACCOUNT); 
         autoExit.withdrawBalances(addresses, address(this));
 
         balanceAfter = USDC.balanceOf(address(this));
@@ -257,7 +259,7 @@ contract AutoExitTest is IntegrationTestBase {
     function testOracleCheck() external {
 
         // create range adjustor with more strict oracle config    
-        autoExit = new AutoExit(NPM, OPERATOR_ACCOUNT, 60 * 30, 4, uint64(Q64 / 400), _getSwapRouterOptions());
+        autoExit = new AutoExit(NPM, OPERATOR_ACCOUNT, WITHDRAWER_ACCOUNT, 60 * 30, 4, uint64(Q64 / 400), _getSwapRouterOptions());
 
         vm.prank(TEST_NFT_2_ACCOUNT);
         NPM.setApprovalForAll(address(autoExit), true);

@@ -44,16 +44,18 @@ abstract contract Automator is Ownable {
 
     // admin events
     event OperatorChanged(address newOperator, bool active);
+    event WithdrawerChanged(address newWithdrawer);
     event TWAPConfigChanged(uint32 TWAPSeconds, uint16 maxTWAPTickDifference);
     event SwapRouterChanged(uint8 swapRouterIndex);
 
     // configurable by owner
     mapping(address => bool) public operators;
+    address public withdrawer;
     uint32 public TWAPSeconds;
     uint16 public maxTWAPTickDifference;
     uint8 public swapRouterIndex; // default is 0
 
-    constructor(INonfungiblePositionManager npm, address _operator, uint32 _TWAPSeconds, uint16 _maxTWAPTickDifference, uint64 _protocolRewardX64, address[] memory _swapRouterOptions) {
+    constructor(INonfungiblePositionManager npm, address _operator, address _withdrawer, uint32 _TWAPSeconds, uint16 _maxTWAPTickDifference, uint64 _protocolRewardX64, address[] memory _swapRouterOptions) {
 
         nonfungiblePositionManager = npm;
         weth = IWETH9(npm.WETH9());
@@ -67,6 +69,7 @@ abstract contract Automator is Ownable {
         emit SwapRouterChanged(0);
 
         setOperator(_operator, true);
+        setWithdrawer(_withdrawer);
 
         setTWAPConfig(_maxTWAPTickDifference, _TWAPSeconds);
 
@@ -86,6 +89,15 @@ abstract contract Automator is Ownable {
 
         emit SwapRouterChanged(_swapRouterIndex);
         swapRouterIndex = _swapRouterIndex;
+    }
+
+    /**
+     * @notice Owner controlled function to set withdrawer address
+     * @param _withdrawer withdrawer
+     */
+    function setWithdrawer(address _withdrawer) public onlyOwner {
+        emit WithdrawerChanged(_withdrawer);
+        withdrawer = _withdrawer;
     }
 
     /**
@@ -119,7 +131,12 @@ abstract contract Automator is Ownable {
      * @param tokens Addresses of tokens to withdraw
      * @param to Address to send to
      */
-    function withdrawBalances(address[] calldata tokens, address to) external onlyOwner {
+    function withdrawBalances(address[] calldata tokens, address to) external {
+
+        if (msg.sender != withdrawer) {
+            revert Unauthorized();
+        }
+
         uint i;
         uint count = tokens.length;
         for(;i < count;++i) {
@@ -134,7 +151,12 @@ abstract contract Automator is Ownable {
      * @notice Withdraws ETH balance
      * @param to Address to send to
      */
-    function withdrawETH(address to) external onlyOwner {
+    function withdrawETH(address to) external {
+
+        if (msg.sender != withdrawer) {
+            revert Unauthorized();
+        }
+
         uint256 balance = address(this).balance;
         if (balance > 0) {
             (bool sent,) = to.call{value: balance}("");
