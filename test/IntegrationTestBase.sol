@@ -68,7 +68,7 @@ abstract contract IntegrationTestBase is Test {
         mainnetFork = vm.createFork("https://rpc.ankr.com/eth", 15489169);
         vm.selectFork(mainnetFork);
 
-        v3utils = new V3Utils(NPM, EX0x);
+        v3utils = new V3Utils(NPM, EX0x, 0, TEST_FEE_ACCOUNT); // 0% swap protocol fee
     }  
 
     function _getSwapRouterOptions() internal returns (address[] memory swapRouterOptions) {

@@ -16,6 +16,8 @@ contract V3Utils is IERC721Receiver {
 
     using SafeCast for uint256;
 
+    uint256 internal constant Q64 = 2 ** 64;
+
     /// @notice Wrapped native token address
     IWETH9 immutable public weth;
 
@@ -24,6 +26,10 @@ contract V3Utils is IERC721Receiver {
 
     /// @notice 0x Exchange Proxy
     address immutable public swapRouter;
+
+    /// @notice Fix reward for revert protocol
+    uint64 public immutable protocolRewardX64;
+    address public immutable protocolRewardReceiver;
 
     // error types
     error Unauthorized();
@@ -52,10 +58,14 @@ contract V3Utils is IERC721Receiver {
     /// @notice Constructor
     /// @param _nonfungiblePositionManager Uniswap v3 position manager
     /// @param _swapRouter 0x Exchange Proxy
-    constructor(INonfungiblePositionManager _nonfungiblePositionManager, address _swapRouter) {
+    /// @param _protocolRewardX64 Protocol reward as Q64
+    /// @param _protocolRewardReceiver Address which receives fees
+    constructor(INonfungiblePositionManager _nonfungiblePositionManager, address _swapRouter, uint64 _protocolRewardX64, address _protocolRewardReceiver) {
         weth = IWETH9(_nonfungiblePositionManager.WETH9());
         nonfungiblePositionManager = _nonfungiblePositionManager;
         swapRouter = _swapRouter;
+        protocolRewardX64 = _protocolRewardX64;
+        protocolRewardReceiver = _protocolRewardReceiver;
     }
 
     /// @notice Action which should be executed on provided NFT
@@ -564,6 +574,12 @@ contract V3Utils is IERC721Receiver {
 
             amountInDelta = balanceInBefore - balanceInAfter;
             amountOutDelta = balanceOutAfter - balanceOutBefore;
+
+            uint reward = amountOutDelta * protocolRewardX64 / Q64;
+            if (reward != 0) {
+                _transferToken(protocolRewardReceiver, tokenOut, reward, false);
+                amountOutDelta -= reward;
+            }
 
             // amountMin slippage check
             if (amountOutDelta < amountOutMin) {

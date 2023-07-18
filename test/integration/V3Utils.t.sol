@@ -758,7 +758,7 @@ contract V3UtilsIntegrationTest is IntegrationTestBase {
 
     function testSwapUSDCDAIWithUniswapRouter() public {
         
-        V3Utils v3utilsWithUniRouter = new V3Utils(NPM, UNISWAP_ROUTER);
+        V3Utils v3utilsWithUniRouter = new V3Utils(NPM, UNISWAP_ROUTER, uint64(Q64 / 200), TEST_FEE_ACCOUNT); // 0.5% swap protocol fee
         assertEq(address(v3utilsWithUniRouter), 0x2e234DAe75C793f67A35089C9d99245E1C58470b);
 
         V3Utils.SwapParams memory params = V3Utils.SwapParams(
@@ -779,14 +779,15 @@ contract V3UtilsIntegrationTest is IntegrationTestBase {
         uint256 inputTokenBalance = USDC.balanceOf(address(v3utilsWithUniRouter));
 
         // swapped to DAI - fee
-        assertEq(amountOut, 999886165248978114);
+        assertEq(amountOut, 994886734422733224);
 
         // input token no leftovers allowed
         assertEq(inputTokenBalance, 0);
 
-        // no fees with router
+        // configured fees of 0.5% with router of output token
         uint256 feeBalance = DAI.balanceOf(TEST_FEE_ACCOUNT);
-        assertEq(feeBalance, 0);
+        assertEq(feeBalance, 4999430826244890);
+
         uint256 otherFeeBalance = USDC.balanceOf(TEST_FEE_ACCOUNT);
         assertEq(otherFeeBalance, 0);
     }
