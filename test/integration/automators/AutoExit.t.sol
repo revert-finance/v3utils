@@ -62,19 +62,32 @@ contract AutoExitTest is IntegrationTestBase {
         vm.stopPrank();
     }
 
+    struct SwapRangesState {
+        uint128 liquidity;
+        uint256 amount0;
+        uint256 amount1;
+        address token0;
+        address token1;
+        uint24 fee;
+        int24 tickLower;
+        int24 tickUpper;
+    }
+
     function testRangesAndActions() external {
 
-        (uint amount0, uint amount1) = _addLiquidity();
-        
-        (, ,address token0, address token1, uint24 fee , int24 tickLower, int24 tickUpper, uint128 liquidity, , , , ) = NPM.positions(TEST_NFT);
+        SwapRangesState memory state;
 
-        IUniswapV3Pool pool = IUniswapV3Pool(PoolAddress.computeAddress(FACTORY, PoolAddress.PoolKey({token0: token0, token1: token1, fee: fee})));
+        (state.amount0, state.amount1) = _addLiquidity();
+        
+        (, ,  state.token0, state.token1, state.fee , state.tickLower, state.tickUpper, state.liquidity, , , , ) = NPM.positions(TEST_NFT);
+
+        IUniswapV3Pool pool = IUniswapV3Pool(PoolAddress.computeAddress(FACTORY, PoolAddress.PoolKey({token0: state.token0, token1: state.token1, fee: state.fee})));
 
         (, int24 tick, , , , , ) = pool.slot0();
 
-        assertGt(liquidity, 0);
-        assertEq(tickLower, -276320);
-        assertEq(tickUpper, -276310);
+        assertGt(state.liquidity, 0);
+        assertEq(state.tickLower, -276320);
+        assertEq(state.tickUpper, -276310);
         assertEq(tick, -276325);
     
         // test with single approval
@@ -84,7 +97,7 @@ contract AutoExitTest is IntegrationTestBase {
         _setConfig(TEST_NFT, true, false, false, 0, 0, -276325, type(int24).max);
         vm.expectRevert(Automator.NotReady.selector);
         vm.prank(OPERATOR_ACCOUNT);
-        autoExit.execute(AutoExit.ExecuteParams(TEST_NFT, "", liquidity,  0, 0, block.timestamp));
+        autoExit.execute(AutoExit.ExecuteParams(TEST_NFT, "", state.liquidity,  0, 0, block.timestamp));
 
         uint balanceBeforeOwner = DAI.balanceOf(TEST_NFT_ACCOUNT);
 
@@ -92,10 +105,10 @@ contract AutoExitTest is IntegrationTestBase {
 
         // execute limit order - without swap
         vm.prank(OPERATOR_ACCOUNT); 
-        autoExit.execute(AutoExit.ExecuteParams(TEST_NFT, "", liquidity,  0, 0, block.timestamp));
+        autoExit.execute(AutoExit.ExecuteParams(TEST_NFT, "", state.liquidity,  0, 0, block.timestamp));
 
-        (, ,, , ,, ,liquidity, , , , ) = NPM.positions(TEST_NFT);
-        assertEq(liquidity, 0);
+        (, ,, , ,, ,state.liquidity, , , , ) = NPM.positions(TEST_NFT);
+        assertEq(state.liquidity, 0);
 
         uint balanceAfterOwner = DAI.balanceOf(TEST_NFT_ACCOUNT);
 
@@ -108,16 +121,16 @@ contract AutoExitTest is IntegrationTestBase {
         autoExit.withdrawBalances(addresses, address(this));
         uint balanceAfter = DAI.balanceOf(address(this));
 
-        assertEq(balanceAfterOwner + balanceAfter - balanceBeforeOwner - balanceBefore + 1, amount0); // +1 because Uniswap imprecision (remove same liquidity returns 1 less)
+        assertEq(balanceAfterOwner + balanceAfter - balanceBeforeOwner - balanceBefore + 1, state.amount0); // +1 because Uniswap imprecision (remove same liquidity returns 1 less)
 
         // is not runnable anymore because configuration was removed
         vm.prank(OPERATOR_ACCOUNT);
         vm.expectRevert(Automator.NotConfigured.selector);
-        autoExit.execute(AutoExit.ExecuteParams(TEST_NFT, "", liquidity,  0, 0, block.timestamp));
+        autoExit.execute(AutoExit.ExecuteParams(TEST_NFT, "", state.liquidity,  0, 0, block.timestamp));
 
         // add new liquidity
-        (amount0, amount1) = _addLiquidity();
-        (, ,, , ,, ,liquidity, , , , ) = NPM.positions(TEST_NFT);
+        (state.amount0, state.amount1) = _addLiquidity();
+        (, ,, , ,, ,state.liquidity, , , , ) = NPM.positions(TEST_NFT);
 
         // change to swap
         _setConfig(TEST_NFT, true, true, true, uint64(Q64 / 100), uint64(Q64 / 100), -276324, type(int24).max);
@@ -125,13 +138,13 @@ contract AutoExitTest is IntegrationTestBase {
         // execute without swap data fails because not allowed by config
         vm.expectRevert(AutoExit.MissingSwapData.selector);
         vm.prank(OPERATOR_ACCOUNT);
-        autoExit.execute(AutoExit.ExecuteParams(TEST_NFT, "", liquidity, 0, 0, block.timestamp));
+        autoExit.execute(AutoExit.ExecuteParams(TEST_NFT, "", state.liquidity, 0, 0, block.timestamp));
 
         // execute stop loss order - with swap
         uint swapBalanceBefore = USDC.balanceOf(TEST_NFT_ACCOUNT);
 
         vm.prank(OPERATOR_ACCOUNT);
-        autoExit.execute(AutoExit.ExecuteParams(TEST_NFT, _getDAIToUSDSwapData(), liquidity, 0, 0, block.timestamp));
+        autoExit.execute(AutoExit.ExecuteParams(TEST_NFT, _getDAIToUSDSwapData(), state.liquidity, 0, 0, block.timestamp));
         uint swapBalanceAfter = USDC.balanceOf(TEST_NFT_ACCOUNT);
         
         // protocol fee

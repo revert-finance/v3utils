@@ -138,12 +138,29 @@ contract AutoRangeTest is IntegrationTestBase {
         autoRange.execute(AutoRange.ExecuteParams(TEST_NFT_2, false, 0, "", 0, 0, 0, block.timestamp));
     }
 
+    struct SwapTestState {
+        uint protocolDAIBalanceBefore;
+        uint protocolWETHBalanceBefore;
+        uint ownerDAIBalanceBefore;
+        uint ownerWETHBalanceBefore;
+        uint tokenId;
+        uint128 liquidity;
+        uint256 amount0;
+        uint256 amount1;
+        address token0;
+        address token1;
+        uint24 fee;
+        uint128 liquidityOld;
+    }
+
     function testAdjustWithoutSwap() external {
 
         // using out of range position TEST_NFT_2
         // available amounts -> 311677619940061890346 506903060556612041
-        // added to new position -> 311677619940061890345 77467250371417094
+        // added to new position -> 778675263877745419944 196199406163820963
         
+        SwapTestState memory state;
+
         vm.prank(TEST_NFT_2_ACCOUNT);
         NPM.setApprovalForAll(address(autoRange), true);
 
@@ -152,73 +169,74 @@ contract AutoRangeTest is IntegrationTestBase {
         uint count = NPM.balanceOf(TEST_NFT_2_ACCOUNT);
         assertEq(count, 4);
 
-        uint protocolDAIBalanceBefore = DAI.balanceOf(address(autoRange));
-        uint protocolWETHBalanceBefore = WETH_ERC20.balanceOf(address(autoRange));
+        state.protocolDAIBalanceBefore = DAI.balanceOf(address(autoRange));
+        state.protocolWETHBalanceBefore = WETH_ERC20.balanceOf(address(autoRange));
 
-        uint ownerDAIBalanceBefore = DAI.balanceOf(TEST_NFT_2_ACCOUNT);
-        uint ownerWETHBalanceBefore = TEST_NFT_2_ACCOUNT.balance;
+        state.ownerDAIBalanceBefore = DAI.balanceOf(TEST_NFT_2_ACCOUNT);
+        state.ownerWETHBalanceBefore = TEST_NFT_2_ACCOUNT.balance;
 
-        (, , , , , , , uint128 liquidity, , , , ) = NPM.positions(TEST_NFT_2);
+        (, , , , , , , state.liquidity, , , , ) = NPM.positions(TEST_NFT_2);
 
 
         // test max withdraw slippage
         vm.prank(OPERATOR_ACCOUNT);
         vm.expectRevert("Price slippage check");
-        autoRange.execute(AutoRange.ExecuteParams(TEST_NFT_2, false, 0, "", liquidity, type(uint).max, type(uint).max, block.timestamp));
+        autoRange.execute(AutoRange.ExecuteParams(TEST_NFT_2, false, 0, "", state.liquidity, type(uint).max, type(uint).max, block.timestamp));
 
         vm.prank(OPERATOR_ACCOUNT);
-        autoRange.execute(AutoRange.ExecuteParams(TEST_NFT_2, false, 0, "", liquidity, 0, 0, block.timestamp)); // max fee with 1% is 7124618988448545
+        autoRange.execute(AutoRange.ExecuteParams(TEST_NFT_2, false, 0, "", state.liquidity, 0, 0, block.timestamp)); // max fee with 1% is 7124618988448545
 
         // is not adjustable yet because config was removed
-        (, , , , , , , liquidity, , , , ) = NPM.positions(TEST_NFT_2);
+        (, , , , , , , state.liquidity, , , , ) = NPM.positions(TEST_NFT_2);
         vm.prank(OPERATOR_ACCOUNT);
         vm.expectRevert(Automator.NotConfigured.selector);
-        autoRange.execute(AutoRange.ExecuteParams(TEST_NFT_2, false, 0, "", liquidity, 0, 0, block.timestamp));
+        autoRange.execute(AutoRange.ExecuteParams(TEST_NFT_2, false, 0, "", state.liquidity, 0, 0, block.timestamp));
 
         // protocol fee
-        assertEq(DAI.balanceOf(address(autoRange)) - protocolDAIBalanceBefore, 777250922543795237);
-        assertEq(WETH_ERC20.balanceOf(address(autoRange)) - protocolWETHBalanceBefore, 193185163020990);
+        assertEq(DAI.balanceOf(address(autoRange)) - state.protocolDAIBalanceBefore, 777250922543795237);
+        assertEq(WETH_ERC20.balanceOf(address(autoRange)) - state.protocolWETHBalanceBefore, 193185163020990);
 
         // leftovers returned to owner
-        assertEq(DAI.balanceOf(TEST_NFT_2_ACCOUNT) - ownerDAIBalanceBefore, 1); // all was added to position
-        assertEq(TEST_NFT_2_ACCOUNT.balance - ownerWETHBalanceBefore, 429435810185194946); // leftover + fee + deposited = total in old position
+        assertEq(DAI.balanceOf(TEST_NFT_2_ACCOUNT) - state.ownerDAIBalanceBefore, 1); // all was added to position
+        assertEq(TEST_NFT_2_ACCOUNT.balance - state.ownerWETHBalanceBefore, 429435810185194946); // leftover + fee + deposited = total in old position
+
 
         count = NPM.balanceOf(TEST_NFT_2_ACCOUNT);
         assertEq(count, 5);
 
         // new NFT is latest NFT - because of the order they are added
-        uint tokenId = NPM.tokenOfOwnerByIndex(TEST_NFT_2_ACCOUNT, count - 1);
+        state.tokenId = NPM.tokenOfOwnerByIndex(TEST_NFT_2_ACCOUNT, count - 1);
 
-        (, , , , , , , liquidity, , , , ) = NPM.positions(tokenId);
+        (, , , , , , , state.liquidity, , , , ) = NPM.positions(state.tokenId);
 
         // is not adjustable yet because in range
         vm.prank(OPERATOR_ACCOUNT);
         vm.expectRevert(Automator.NotReady.selector);
-        autoRange.execute(AutoRange.ExecuteParams(tokenId, false, 0, "", liquidity, 0, 0, block.timestamp));
+        autoRange.execute(AutoRange.ExecuteParams(state.tokenId, false, 0, "", state.liquidity, 0, 0, block.timestamp));
 
         // newly minted token
-        assertEq(tokenId, 309207);
+        assertEq(state.tokenId, 309207);
 
-        (, , , , , , , liquidity, , , , ) = NPM.positions(tokenId);
-        (, , , , , int24 tickLowerAfter, int24 tickUpperAfter , , , , , ) = NPM.positions(tokenId);
-        (, , address token0 , address token1 , uint24 fee , , , uint128 liquidityOld, , , , ) = NPM.positions(TEST_NFT_2);
+        (, , , , , , , state.liquidity, , , , ) = NPM.positions(state.tokenId);
+        (, , , , , int24 tickLowerAfter, int24 tickUpperAfter , , , , , ) = NPM.positions(state.tokenId);
+        (, , state.token0 , state.token1 , state.fee , , , state.liquidityOld, , , , ) = NPM.positions(TEST_NFT_2);
 
-        IUniswapV3Pool pool = IUniswapV3Pool(PoolAddress.computeAddress(FACTORY, PoolAddress.getPoolKey(token0, token1, fee)));
+        IUniswapV3Pool pool = IUniswapV3Pool(PoolAddress.computeAddress(FACTORY, PoolAddress.getPoolKey(state.token0, state.token1, state.fee)));
         (uint160 sqrtPriceX96, int24 currentTick,,,,,) = pool.slot0();
 
-        (uint256 amount0, uint256 amount1) = LiquidityAmounts.getAmountsForLiquidity(sqrtPriceX96, TickMath.getSqrtRatioAtTick(tickLowerAfter), TickMath.getSqrtRatioAtTick(tickUpperAfter), liquidity);
+        (state.amount0,  state.amount1) = LiquidityAmounts.getAmountsForLiquidity(sqrtPriceX96, TickMath.getSqrtRatioAtTick(tickLowerAfter), TickMath.getSqrtRatioAtTick(tickUpperAfter), state.liquidity);
 
         // new position amounts
-        assertEq(amount0, 310900369017518095107); //DAI
-        assertEq(amount1, 77274065208396104); //WETH
+        assertEq(state.amount0, 310900369017518095107); //DAI
+        assertEq(state.amount1, 77274065208396104); //WETH
 
         // check tick range correct
         assertEq(tickLowerAfter, -73260);
         assertEq(currentTick,  -73244);
         assertEq(tickUpperAfter, -73260 + 60);
 
-        assertEq(liquidity, 3667918618704675260835);
-        assertEq(liquidityOld, 0);
+        assertEq(state.liquidity, 3667918618704675260835);
+        assertEq(state.liquidityOld, 0);
     }
 
     function testAdjustWithTooLargeSwap() external {
@@ -238,10 +256,12 @@ contract AutoRangeTest is IntegrationTestBase {
 
     function testAdjustWithSwap() external {
 
+        SwapTestState memory state;
+
         // using out of range position TEST_NFT_2
         // available amounts -> DAI 311677619940061890346 WETH 506903060556612041
         // swapping 0.3 WETH -> DAI (so more can be added to new position) 
-        // added to new position -> 767197802262466967698 190686467137733081
+        // added to new position -> 782948862604141727748 194702024655849100
         
         vm.prank(TEST_NFT_2_ACCOUNT);
         NPM.setApprovalForAll(address(autoRange), true);
@@ -249,53 +269,53 @@ contract AutoRangeTest is IntegrationTestBase {
         vm.prank(TEST_NFT_2_ACCOUNT);
         autoRange.configToken(TEST_NFT_2, AutoRange.PositionConfig(0, 0, 0, 60, uint64(Q64 / 100), uint64(Q64 / 100))); // 1% max fee, 1% max slippage
        
-        uint protocolDAIBalanceBefore = DAI.balanceOf(address(autoRange));
-        uint protocolWETHBalanceBefore = WETH_ERC20.balanceOf(address(autoRange));
+        state.protocolDAIBalanceBefore = DAI.balanceOf(address(autoRange));
+        state.protocolWETHBalanceBefore = WETH_ERC20.balanceOf(address(autoRange));
 
-        uint ownerDAIBalanceBefore = DAI.balanceOf(TEST_NFT_2_ACCOUNT);
-        uint ownerWETHBalanceBefore = TEST_NFT_2_ACCOUNT.balance;
+        state.ownerDAIBalanceBefore = DAI.balanceOf(TEST_NFT_2_ACCOUNT);
+        state.ownerWETHBalanceBefore = TEST_NFT_2_ACCOUNT.balance;
 
-        (, , , , , , , uint128 liquidity, , , , ) = NPM.positions(TEST_NFT_2);
+        (, , , , , , , state.liquidity, , , , ) = NPM.positions(TEST_NFT_2);
 
         vm.prank(OPERATOR_ACCOUNT);
-        autoRange.execute(AutoRange.ExecuteParams(TEST_NFT_2, false, 300000000000000000, _get03WETHToDAISwapData(), liquidity, 0, 0, block.timestamp)); // max fee with 1% is 7124618988448545
+        autoRange.execute(AutoRange.ExecuteParams(TEST_NFT_2, false, 300000000000000000, _get03WETHToDAISwapData(), state.liquidity, 0, 0, block.timestamp)); // max fee with 1% is 7124618988448545
 
         // protocol fee
-        assertEq(DAI.balanceOf(address(autoRange)) - protocolDAIBalanceBefore, 1913211476963758022);
-        assertEq(WETH_ERC20.balanceOf(address(autoRange)) - protocolWETHBalanceBefore, 475527349470656);
+        assertEq(DAI.balanceOf(address(autoRange)) - state.protocolDAIBalanceBefore, 1913211476963758022);
+        assertEq(WETH_ERC20.balanceOf(address(autoRange)) - state.protocolWETHBalanceBefore, 475527349470656);
 
         // leftovers returned to owner
-        assertEq(DAI.balanceOf(TEST_NFT_2_ACCOUNT) - ownerDAIBalanceBefore, 1); // all was added to position
-        assertEq(TEST_NFT_2_ACCOUNT.balance - ownerWETHBalanceBefore, 16216593418878959); // leftover + fee + deposited = total in old position
+        assertEq(DAI.balanceOf(TEST_NFT_2_ACCOUNT) - state.ownerDAIBalanceBefore, 1);
+        assertEq(TEST_NFT_2_ACCOUNT.balance - state.ownerWETHBalanceBefore, 16216593418878959);
 
         uint count = NPM.balanceOf(TEST_NFT_2_ACCOUNT);
 
         // new NFT is latest NFT - because of the order they are added
-        uint tokenId = NPM.tokenOfOwnerByIndex(TEST_NFT_2_ACCOUNT, count - 1);
+        state.tokenId = NPM.tokenOfOwnerByIndex(TEST_NFT_2_ACCOUNT, count - 1);
 
         // newly minted token
-        assertEq(tokenId, 309207);
+        assertEq(state.tokenId, 309207);
 
-        (, , , , , , , liquidity, , , , ) = NPM.positions(tokenId);
-        (, , , , , int24 tickLowerAfter, int24 tickUpperAfter , , , , , ) = NPM.positions(tokenId);
-        (, , address token0 , address token1 , uint24 fee , , , uint128 liquidityOld, , , , ) = NPM.positions(TEST_NFT_2);
+        (, , , , , , , state.liquidity, , , , ) = NPM.positions(state.tokenId);
+        (, , , , , int24 tickLowerAfter, int24 tickUpperAfter , , , , , ) = NPM.positions(state.tokenId);
+        (, , state.token0 , state.token1 , state.fee , , , state.liquidityOld, , , , ) = NPM.positions(TEST_NFT_2);
 
-        IUniswapV3Pool pool = IUniswapV3Pool(PoolAddress.computeAddress(FACTORY, PoolAddress.getPoolKey(token0, token1, fee)));
+        IUniswapV3Pool pool = IUniswapV3Pool(PoolAddress.computeAddress(FACTORY, PoolAddress.getPoolKey(state.token0, state.token1, state.fee)));
         (uint160 sqrtPriceX96, int24 currentTick,,,,,) = pool.slot0();
 
-        (uint256 amount0, uint256 amount1) = LiquidityAmounts.getAmountsForLiquidity(sqrtPriceX96, TickMath.getSqrtRatioAtTick(tickLowerAfter), TickMath.getSqrtRatioAtTick(tickUpperAfter), liquidity);
+        (state.amount0, state.amount1) = LiquidityAmounts.getAmountsForLiquidity(sqrtPriceX96, TickMath.getSqrtRatioAtTick(tickLowerAfter), TickMath.getSqrtRatioAtTick(tickUpperAfter), state.liquidity);
 
         // new position amounts
-        assertEq(amount0, 765284590785503209675); //DAI
-        assertEq(amount1, 190210939788262425); //WETH
+        assertEq(state.amount0, 765284590785503209675); //DAI
+        assertEq(state.amount1, 190210939788262425); //WETH
 
         // check tick range correct
         assertEq(tickLowerAfter, -73260);
         assertEq(currentTick,  -73244);
         assertEq(tickUpperAfter, -73260 + 60);
 
-        assertEq(liquidity, 9028620995273798933977);
-        assertEq(liquidityOld, 0);
+        assertEq(state.liquidity, 9028620995273798933977);
+        assertEq(state.liquidityOld, 0);
     }
 
     function testDoubleAdjust() external {
