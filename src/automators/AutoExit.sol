@@ -30,11 +30,12 @@ contract AutoExit is Automator {
         int24 token1TriggerTick,
         uint64 token0SlippageX64,
         uint64 token1SlippageX64,
-        bool onlyFees
+        bool onlyFees,
+        uint64 maxRewardX64
     );
 
-    constructor(INonfungiblePositionManager _npm, address _operator, address _withdrawer, uint32 _TWAPSeconds, uint16 _maxTWAPTickDifference, uint64 _maxProtocolRewardX64, uint64 _maxFeeProtocolRewardX64, address[] memory _swapRouterOptions) 
-        Automator(_npm, _operator, _withdrawer, _TWAPSeconds, _maxTWAPTickDifference, _maxProtocolRewardX64, _maxFeeProtocolRewardX64, _swapRouterOptions) {
+    constructor(INonfungiblePositionManager _npm, address _operator, address _withdrawer, uint32 _TWAPSeconds, uint16 _maxTWAPTickDifference, address[] memory _swapRouterOptions) 
+        Automator(_npm, _operator, _withdrawer, _TWAPSeconds, _maxTWAPTickDifference, _swapRouterOptions) {
     }
 
     // define how stoploss / limit should be handled
@@ -50,6 +51,7 @@ contract AutoExit is Automator {
         uint64 token0SlippageX64; // when token 0 is swapped to token 1
         uint64 token1SlippageX64; // when token 1 is swapped to token 0
         bool onlyFees; // if only fees maybe used for protocol reward
+        uint64 maxRewardX64; // max allowed reward percentage of fees or full position
     }
 
     // configured tokens
@@ -106,7 +108,7 @@ contract AutoExit is Automator {
             revert NotConfigured();
         }
 
-        if (config.onlyFees && params.rewardX64 > maxFeeProtocolRewardX64 || !config.onlyFees && params.rewardX64 > maxProtocolRewardX64) {
+        if (config.onlyFees && params.rewardX64 > config.maxRewardX64 || !config.onlyFees && params.rewardX64 > config.maxRewardX64) {
             revert ExceedsMaxReward();
         }
 
@@ -181,7 +183,7 @@ contract AutoExit is Automator {
 
         // delete config for position
         delete positionConfigs[params.tokenId];
-        emit PositionConfigured(params.tokenId, false, false, false, 0, 0, 0, 0, false);
+        emit PositionConfigured(params.tokenId, false, false, false, 0, 0, 0, 0, false, 0);
 
         // log event
         emit Executed(params.tokenId, msg.sender, state.isSwap, state.amount0, state.amount1, state.token0, state.token1);
@@ -212,7 +214,8 @@ contract AutoExit is Automator {
             config.token1TriggerTick,
             config.token0SlippageX64,
             config.token1SlippageX64,
-            config.onlyFees
+            config.onlyFees,
+            config.maxRewardX64
         );
     }
 }

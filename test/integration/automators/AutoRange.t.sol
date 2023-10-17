@@ -13,7 +13,7 @@ contract AutoRangeTest is IntegrationTestBase {
 
     function setUp() external {
         _setupBase();
-        autoRange = new AutoRange(NPM, OPERATOR_ACCOUNT, WITHDRAWER_ACCOUNT, 60, 100, MAX_REWARD, MAX_FEE_REWARD, _getSwapRouterOptions());
+        autoRange = new AutoRange(NPM, OPERATOR_ACCOUNT, WITHDRAWER_ACCOUNT, 60, 100, _getSwapRouterOptions());
     }
 
     function testSetTWAPSeconds() external {
@@ -43,26 +43,26 @@ contract AutoRangeTest is IntegrationTestBase {
     function testUnauthorizedSetConfig() external {
         vm.expectRevert(Automator.Unauthorized.selector);
         vm.prank(TEST_NFT_ACCOUNT);
-        autoRange.configToken(TEST_NFT_2, AutoRange.PositionConfig(0, 0, 0, 1, 0, 0, false));
+        autoRange.configToken(TEST_NFT_2, AutoRange.PositionConfig(0, 0, 0, 1, 0, 0, false, MAX_REWARD));
     }
 
     function testResetConfig() external {
         vm.prank(TEST_NFT_ACCOUNT);
-        autoRange.configToken(TEST_NFT, AutoRange.PositionConfig(0, 0, 0, 0, 0, 0, false));
+        autoRange.configToken(TEST_NFT, AutoRange.PositionConfig(0, 0, 0, 0, 0, 0, false, MAX_REWARD));
     }
 
     function testInvalidConfig() external {
         vm.expectRevert(Automator.InvalidConfig.selector);
         vm.prank(TEST_NFT_ACCOUNT);
-        autoRange.configToken(TEST_NFT, AutoRange.PositionConfig(0, 0, 1, 0, 0, 0, false));
+        autoRange.configToken(TEST_NFT, AutoRange.PositionConfig(0, 0, 1, 0, 0, 0, false, MAX_REWARD));
     }
 
     function testValidSetConfig() external {
         vm.prank(TEST_NFT_ACCOUNT);
-        AutoRange.PositionConfig memory configIn = AutoRange.PositionConfig(1, -1, 0, 1, 123, 456, false);
+        AutoRange.PositionConfig memory configIn = AutoRange.PositionConfig(1, -1, 0, 1, 123, 456, false, MAX_REWARD);
         autoRange.configToken(TEST_NFT, configIn);
-        (int32 i1, int32 i2, int32 i3, int32 i4, uint64 i5, uint64 i6, bool i7) = autoRange.positionConfigs(TEST_NFT);
-        assertEq(abi.encode(configIn), abi.encode(AutoRange.PositionConfig(i1, i2, i3, i4, i5, i6, i7)));
+        (int32 i1, int32 i2, int32 i3, int32 i4, uint64 i5, uint64 i6, bool i7, uint64 i8) = autoRange.positionConfigs(TEST_NFT);
+        assertEq(abi.encode(configIn), abi.encode(AutoRange.PositionConfig(i1, i2, i3, i4, i5, i6, i7, i8)));
     }
 
     function testNonOperator() external {
@@ -74,7 +74,7 @@ contract AutoRangeTest is IntegrationTestBase {
     function testAdjustWithoutApprove() external {
         // out of range position
         vm.prank(TEST_NFT_2_ACCOUNT);
-        autoRange.configToken(TEST_NFT_2, AutoRange.PositionConfig(0, 0, 0, 1, 0, 0, false));
+        autoRange.configToken(TEST_NFT_2, AutoRange.PositionConfig(0, 0, 0, 1, 0, 0, false, MAX_REWARD));
 
         (, , , , , , , uint128 liquidity, , , , ) = NPM.positions(TEST_NFT_2);
 
@@ -100,7 +100,7 @@ contract AutoRangeTest is IntegrationTestBase {
         NPM.setApprovalForAll(address(autoRange), true);
 
         vm.prank(TEST_NFT_2_ACCOUNT);
-        autoRange.configToken(TEST_NFT_2_A, AutoRange.PositionConfig(0, 0, 0, 60, uint64(Q64 / 100), uint64(Q64 / 100), false)); // 1% max fee, 1% max slippage
+        autoRange.configToken(TEST_NFT_2_A, AutoRange.PositionConfig(0, 0, 0, 60, uint64(Q64 / 100), uint64(Q64 / 100), false, MAX_REWARD)); // 1% max fee, 1% max slippage
 
         (, , , , , , , uint128 liquidity, , , , ) = NPM.positions(TEST_NFT_2_A);
 
@@ -115,7 +115,7 @@ contract AutoRangeTest is IntegrationTestBase {
         NPM.setApprovalForAll(address(autoRange), true);
 
         vm.prank(TEST_NFT_2_ACCOUNT);
-        autoRange.configToken(TEST_NFT_2, AutoRange.PositionConfig(0, 0, -int32(uint32(type(uint24).max)), int32(uint32(type(uint24).max)), 0, 0, false)); // 1% max fee, 1% max slippage
+        autoRange.configToken(TEST_NFT_2, AutoRange.PositionConfig(0, 0, -int32(uint32(type(uint24).max)), int32(uint32(type(uint24).max)), 0, 0, false, MAX_REWARD)); // 1% max fee, 1% max slippage
 
         (, , , , , , , uint128 liquidity, , , , ) = NPM.positions(TEST_NFT_2);
 
@@ -130,7 +130,7 @@ contract AutoRangeTest is IntegrationTestBase {
         NPM.setApprovalForAll(address(autoRange), true);
 
         vm.prank(TEST_NFT_2_ACCOUNT);
-        autoRange.configToken(TEST_NFT_2, AutoRange.PositionConfig(0, 0, -int32(uint32(type(uint24).max)), int32(uint32(type(uint24).max)), 0, 0, false)); // 1% max fee, 1% max slippage
+        autoRange.configToken(TEST_NFT_2, AutoRange.PositionConfig(0, 0, -int32(uint32(type(uint24).max)), int32(uint32(type(uint24).max)), 0, 0, false, MAX_REWARD)); // 1% max fee, 1% max slippage
 
         // will be reverted because LiquidityChanged
         vm.expectRevert(Automator.LiquidityChanged.selector);
@@ -165,7 +165,7 @@ contract AutoRangeTest is IntegrationTestBase {
         NPM.setApprovalForAll(address(autoRange), true);
 
         vm.prank(TEST_NFT_2_ACCOUNT);
-        autoRange.configToken(TEST_NFT_2, AutoRange.PositionConfig(0, 0, 0, 60, uint64(Q64 / 100), uint64(Q64 / 100), onlyFees)); // 1% max fee, 1% max slippage
+        autoRange.configToken(TEST_NFT_2, AutoRange.PositionConfig(0, 0, 0, 60, uint64(Q64 / 100), uint64(Q64 / 100), onlyFees, onlyFees ? MAX_FEE_REWARD : MAX_REWARD)); // 1% max fee, 1% max slippage
         uint count = NPM.balanceOf(TEST_NFT_2_ACCOUNT);
         assertEq(count, 4);
 
@@ -245,7 +245,7 @@ contract AutoRangeTest is IntegrationTestBase {
         NPM.setApprovalForAll(address(autoRange), true);
 
         vm.prank(TEST_NFT_2_ACCOUNT);
-        autoRange.configToken(TEST_NFT_2, AutoRange.PositionConfig(0, 0, 0, 60, uint64(Q64 / 100), uint64(Q64 / 100), false)); // 1% max fee, 1% max slippage
+        autoRange.configToken(TEST_NFT_2, AutoRange.PositionConfig(0, 0, 0, 60, uint64(Q64 / 100), uint64(Q64 / 100), false, MAX_REWARD)); // 1% max fee, 1% max slippage
 
         (, , , , , , , uint128 liquidity, , , , ) = NPM.positions(TEST_NFT_2);
 
@@ -267,7 +267,7 @@ contract AutoRangeTest is IntegrationTestBase {
         NPM.setApprovalForAll(address(autoRange), true);
 
         vm.prank(TEST_NFT_2_ACCOUNT);
-        autoRange.configToken(TEST_NFT_2, AutoRange.PositionConfig(0, 0, 0, 60, uint64(Q64 / 100), uint64(Q64 / 100), onlyFees)); // 1% max fee, 1% max slippage
+        autoRange.configToken(TEST_NFT_2, AutoRange.PositionConfig(0, 0, 0, 60, uint64(Q64 / 100), uint64(Q64 / 100), onlyFees, onlyFees ? MAX_FEE_REWARD : MAX_REWARD)); // 1% max fee, 1% max slippage
        
         state.protocolDAIBalanceBefore = DAI.balanceOf(address(autoRange));
         state.protocolWETHBalanceBefore = WETH_ERC20.balanceOf(address(autoRange));
@@ -325,7 +325,7 @@ contract AutoRangeTest is IntegrationTestBase {
 
         // bad config so it can be adjusted multiple times
         vm.prank(TEST_NFT_2_ACCOUNT);
-        autoRange.configToken(TEST_NFT_2, AutoRange.PositionConfig(-100000, -100000, 0, 60, uint64(Q64 / 100), uint64(Q64 / 100), false));
+        autoRange.configToken(TEST_NFT_2, AutoRange.PositionConfig(-100000, -100000, 0, 60, uint64(Q64 / 100), uint64(Q64 / 100), false, MAX_REWARD));
 
         (, , , , , , , uint128 liquidity, , , , ) = NPM.positions(TEST_NFT_2);
 
@@ -350,13 +350,13 @@ contract AutoRangeTest is IntegrationTestBase {
     function testOracleCheck() external {
 
         // create range adjustor with more strict oracle config    
-        autoRange = new AutoRange(NPM, OPERATOR_ACCOUNT, WITHDRAWER_ACCOUNT, 60 * 30, 4, MAX_REWARD, MAX_FEE_REWARD, _getSwapRouterOptions());
+        autoRange = new AutoRange(NPM, OPERATOR_ACCOUNT, WITHDRAWER_ACCOUNT, 60 * 30, 4, _getSwapRouterOptions());
 
         vm.prank(TEST_NFT_2_ACCOUNT);
         NPM.setApprovalForAll(address(autoRange), true);
 
         vm.prank(TEST_NFT_2_ACCOUNT);
-        autoRange.configToken(TEST_NFT_2, AutoRange.PositionConfig(-100000, -100000, 0, 60, uint64(Q64 / 100), uint64(Q64 / 100), false));
+        autoRange.configToken(TEST_NFT_2, AutoRange.PositionConfig(-100000, -100000, 0, 60, uint64(Q64 / 100), uint64(Q64 / 100), false, MAX_REWARD));
 
         (, , , , , , , uint128 liquidity, , , , ) = NPM.positions(TEST_NFT_2);
 

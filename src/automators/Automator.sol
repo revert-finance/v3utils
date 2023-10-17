@@ -36,8 +36,6 @@ abstract contract Automator is Ownable {
     INonfungiblePositionManager public immutable nonfungiblePositionManager;
     IUniswapV3Factory public immutable factory;
     IWETH9 public immutable weth;
-    uint64 public immutable maxProtocolRewardX64;
-    uint64 public immutable maxFeeProtocolRewardX64;
 
     // preconfigured options for swap routers
     address public immutable swapRouterOption0;
@@ -57,7 +55,7 @@ abstract contract Automator is Ownable {
     uint16 public maxTWAPTickDifference;
     uint8 public swapRouterIndex; // default is 0
 
-    constructor(INonfungiblePositionManager npm, address _operator, address _withdrawer, uint32 _TWAPSeconds, uint16 _maxTWAPTickDifference, uint64 _maxProtocolRewardX64, uint64 _maxFeeProtocolRewardX64, address[] memory _swapRouterOptions) {
+    constructor(INonfungiblePositionManager npm, address _operator, address _withdrawer, uint32 _TWAPSeconds, uint16 _maxTWAPTickDifference, address[] memory _swapRouterOptions) {
 
         nonfungiblePositionManager = npm;
         weth = IWETH9(npm.WETH9());
@@ -74,9 +72,6 @@ abstract contract Automator is Ownable {
         setWithdrawer(_withdrawer);
 
         setTWAPConfig(_maxTWAPTickDifference, _TWAPSeconds);
-
-        maxProtocolRewardX64 = _maxProtocolRewardX64;
-        maxFeeProtocolRewardX64 = _maxFeeProtocolRewardX64;
     }
 
      /**

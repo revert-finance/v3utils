@@ -25,11 +25,12 @@ contract AutoRange is Automator {
         int32 upperTickDelta,
         uint64 token0SlippageX64,
         uint64 token1SlippageX64,
-        bool onlyFees
+        bool onlyFees,
+        uint64 maxRewardX64
     );
 
-    constructor(INonfungiblePositionManager _npm, address _operator, address _withdrawer, uint32 _TWAPSeconds, uint16 _maxTWAPTickDifference, uint64 _maxProtocolRewardX64, uint64 _maxFeeProtocolRewardX64, address[] memory _swapRouterOptions) 
-        Automator(_npm, _operator, _withdrawer, _TWAPSeconds, _maxTWAPTickDifference, _maxProtocolRewardX64, _maxFeeProtocolRewardX64, _swapRouterOptions) {
+    constructor(INonfungiblePositionManager _npm, address _operator, address _withdrawer, uint32 _TWAPSeconds, uint16 _maxTWAPTickDifference, address[] memory _swapRouterOptions) 
+        Automator(_npm, _operator, _withdrawer, _TWAPSeconds, _maxTWAPTickDifference, _swapRouterOptions) {
     }
 
     // defines when and how a position can be changed by operator
@@ -43,6 +44,7 @@ contract AutoRange is Automator {
         uint64 token0SlippageX64; // max price difference from current pool price for swap / Q64 for token0
         uint64 token1SlippageX64; // max price difference from current pool price for swap / Q64 for token1
         bool onlyFees; // if only fees maybe used for protocol reward
+        uint64 maxRewardX64; // max allowed reward percentage of fees or full position
     }
 
     // configured tokens
@@ -113,7 +115,7 @@ contract AutoRange is Automator {
             revert NotConfigured();
         }
 
-        if (config.onlyFees && params.rewardX64 > maxFeeProtocolRewardX64 || !config.onlyFees && params.rewardX64 > maxProtocolRewardX64) {
+        if (config.onlyFees && params.rewardX64 > config.maxRewardX64 || !config.onlyFees && params.rewardX64 > config.maxRewardX64) {
             revert ExceedsMaxReward();
         }
 
@@ -220,12 +222,13 @@ contract AutoRange is Automator {
                 config.upperTickDelta,
                 config.token0SlippageX64,
                 config.token1SlippageX64,
-                config.onlyFees
+                config.onlyFees,
+                config.maxRewardX64
             );
 
             // delete config for old position
             delete positionConfigs[params.tokenId];
-            emit PositionConfigured(params.tokenId, 0, 0, 0, 0, 0, 0, false);
+            emit PositionConfigured(params.tokenId, 0, 0, 0, 0, 0, 0, false, 0);
 
             emit RangeChanged(params.tokenId, state.newTokenId);
 
@@ -257,7 +260,8 @@ contract AutoRange is Automator {
             config.upperTickDelta,
             config.token0SlippageX64,
             config.token1SlippageX64,
-            config.onlyFees
+            config.onlyFees,
+            config.maxRewardX64
         );
     }
 
