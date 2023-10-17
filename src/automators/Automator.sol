@@ -31,11 +31,13 @@ abstract contract Automator is Ownable {
     error SwapFailed();
     error SlippageError();
     error LiquidityChanged();
+    error ExceedsMaxReward();
 
     INonfungiblePositionManager public immutable nonfungiblePositionManager;
     IUniswapV3Factory public immutable factory;
     IWETH9 public immutable weth;
-    uint64 public immutable protocolRewardX64;
+    uint64 public immutable maxProtocolRewardX64;
+    uint64 public immutable maxFeeProtocolRewardX64;
 
     // preconfigured options for swap routers
     address public immutable swapRouterOption0;
@@ -55,7 +57,7 @@ abstract contract Automator is Ownable {
     uint16 public maxTWAPTickDifference;
     uint8 public swapRouterIndex; // default is 0
 
-    constructor(INonfungiblePositionManager npm, address _operator, address _withdrawer, uint32 _TWAPSeconds, uint16 _maxTWAPTickDifference, uint64 _protocolRewardX64, address[] memory _swapRouterOptions) {
+    constructor(INonfungiblePositionManager npm, address _operator, address _withdrawer, uint32 _TWAPSeconds, uint16 _maxTWAPTickDifference, uint64 _maxProtocolRewardX64, uint64 _maxFeeProtocolRewardX64, address[] memory _swapRouterOptions) {
 
         nonfungiblePositionManager = npm;
         weth = IWETH9(npm.WETH9());
@@ -73,7 +75,8 @@ abstract contract Automator is Ownable {
 
         setTWAPConfig(_maxTWAPTickDifference, _TWAPSeconds);
 
-        protocolRewardX64 = _protocolRewardX64;
+        maxProtocolRewardX64 = _maxProtocolRewardX64;
+        maxFeeProtocolRewardX64 = _maxFeeProtocolRewardX64;
     }
 
      /**
@@ -265,9 +268,10 @@ abstract contract Automator is Ownable {
             );
     }
 
-    function _decreaseFullLiquidityAndCollect(uint256 tokenId, uint128 liquidity, uint256 amountRemoveMin0, uint256 amountRemoveMin1, uint256 deadline) internal returns (uint256 amount0, uint256 amount1) {
+    function _decreaseFullLiquidityAndCollect(uint256 tokenId, uint128 liquidity, uint256 amountRemoveMin0, uint256 amountRemoveMin1, uint256 deadline) internal returns (uint256 amount0, uint256 amount1, uint256 feeAmount0, uint256 feeAmount1) {
        if (liquidity > 0) {
-            (amount0, amount1) = nonfungiblePositionManager.decreaseLiquidity(
+            // store in temporarely "misnamed" variables - see comment below
+            (feeAmount0, feeAmount1) = nonfungiblePositionManager.decreaseLiquidity(
                     INonfungiblePositionManager.DecreaseLiquidityParams(
                         tokenId,
                         liquidity,
@@ -285,6 +289,10 @@ abstract contract Automator is Ownable {
                 type(uint128).max
             )
         );
+
+        // fee amount is what was collected additionally to liquidity amount
+        feeAmount0 = amount0 - feeAmount0;
+        feeAmount1 = amount1 - feeAmount1;
     }
 
     // transfers token (or unwraps WETH and sends ETH)

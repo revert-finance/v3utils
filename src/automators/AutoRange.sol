@@ -24,11 +24,12 @@ contract AutoRange is Automator {
         int32 lowerTickDelta,
         int32 upperTickDelta,
         uint64 token0SlippageX64,
-        uint64 token1SlippageX64
+        uint64 token1SlippageX64,
+        bool onlyFees
     );
 
-    constructor(INonfungiblePositionManager _npm, address _operator, address _withdrawer, uint32 _TWAPSeconds, uint16 _maxTWAPTickDifference, uint64 _protocolRewardX64, address[] memory _swapRouterOptions) 
-        Automator(_npm, _operator, _withdrawer, _TWAPSeconds, _maxTWAPTickDifference, _protocolRewardX64, _swapRouterOptions) {
+    constructor(INonfungiblePositionManager _npm, address _operator, address _withdrawer, uint32 _TWAPSeconds, uint16 _maxTWAPTickDifference, uint64 _maxProtocolRewardX64, uint64 _maxFeeProtocolRewardX64, address[] memory _swapRouterOptions) 
+        Automator(_npm, _operator, _withdrawer, _TWAPSeconds, _maxTWAPTickDifference, _maxProtocolRewardX64, _maxFeeProtocolRewardX64, _swapRouterOptions) {
     }
 
     // defines when and how a position can be changed by operator
@@ -41,6 +42,7 @@ contract AutoRange is Automator {
         int32 upperTickDelta; // this amount is added to current tick (floored to tickspacing) to define upperTick of new position
         uint64 token0SlippageX64; // max price difference from current pool price for swap / Q64 for token0
         uint64 token1SlippageX64; // max price difference from current pool price for swap / Q64 for token1
+        bool onlyFees; // if only fees maybe used for protocol reward
     }
 
     // configured tokens
@@ -56,6 +58,7 @@ contract AutoRange is Automator {
         uint256 amountRemoveMin0; // min amount to be removed from liquidity
         uint256 amountRemoveMin1; // min amount to be removed from liquidity
         uint256 deadline; // for uniswap operations - operator promises fair value
+        uint64 rewardX64;  // which reward will be used for protocol, can be max configured amount (considering onlyFees)
     }
 
     struct ExecuteState {
@@ -71,6 +74,8 @@ contract AutoRange is Automator {
 
         uint256 amount0;
         uint256 amount1;
+        uint256 feeAmount0;
+        uint256 feeAmount1;
 
         uint256 maxAddAmount0;
         uint256 maxAddAmount1;
@@ -108,6 +113,10 @@ contract AutoRange is Automator {
             revert NotConfigured();
         }
 
+        if (config.onlyFees && params.rewardX64 > maxFeeProtocolRewardX64 || !config.onlyFees && params.rewardX64 > maxProtocolRewardX64) {
+            revert ExceedsMaxReward();
+        }
+
         // get position info
         (,, state.token0, state.token1, state.fee, state.tickLower, state.tickUpper, state.liquidity, , , , ) =  nonfungiblePositionManager.positions(params.tokenId);
 
@@ -115,7 +124,15 @@ contract AutoRange is Automator {
             revert LiquidityChanged();
         }
 
-        (state.amount0, state.amount1) = _decreaseFullLiquidityAndCollect(params.tokenId, state.liquidity, params.amountRemoveMin0, params.amountRemoveMin1, params.deadline);
+        (state.amount0, state.amount1, state.feeAmount0, state.feeAmount1) = _decreaseFullLiquidityAndCollect(params.tokenId, state.liquidity, params.amountRemoveMin0, params.amountRemoveMin1, params.deadline);
+
+        // if only fees reward is removed before adding
+        if (config.onlyFees) {
+            state.protocolReward0 = state.feeAmount0 * params.rewardX64 / Q64;
+            state.protocolReward1 = state.feeAmount1 * params.rewardX64 / Q64;
+            state.amount0 -= state.protocolReward0;
+            state.amount1 -= state.protocolReward1;
+        }
 
         if (params.swap0To1 && params.amountIn > state.amount0 || !params.swap0To1 && params.amountIn > state.amount1) {
             revert SwapAmountTooLarge();
@@ -142,9 +159,9 @@ contract AutoRange is Automator {
             state.amount0 = params.swap0To1 ? state.amount0 - state.amountInDelta : state.amount0 + state.amountOutDelta;
             state.amount1 = params.swap0To1 ? state.amount1 + state.amountOutDelta : state.amount1 - state.amountInDelta;
                 
-            // max amount to add - removing max potential fees
-            state.maxAddAmount0 = state.amount0 * Q64 / (protocolRewardX64 + Q64);
-            state.maxAddAmount1 = state.amount1 * Q64 / (protocolRewardX64 + Q64);
+            // max amount to add - removing max potential fees (if config.onlyFees - the have been removed already)
+            state.maxAddAmount0 = config.onlyFees ? state.amount0 : state.amount0 * Q64 / (params.rewardX64 + Q64);
+            state.maxAddAmount1 = config.onlyFees ? state.amount1 : state.amount1 * Q64 / (params.rewardX64 + Q64);
 
             INonfungiblePositionManager.MintParams memory mintParams = 
                 INonfungiblePositionManager.MintParams(
@@ -154,7 +171,7 @@ contract AutoRange is Automator {
                     SafeCast.toInt24(baseTick + config.lowerTickDelta), // reverts if out of valid range
                     SafeCast.toInt24(baseTick + config.upperTickDelta), // reverts if out of valid range
                     state.maxAddAmount0,
-                    state.maxAddAmount1, 
+                    state.maxAddAmount1,
                     0,
                     0,
                     address(this), // is sent to real recipient aftwards
@@ -178,15 +195,19 @@ contract AutoRange is Automator {
             nonfungiblePositionManager.safeTransferFrom(address(this), state.owner, state.newTokenId);
 
             // protocol reward is calculated based on added amount (to incentivize optimal swap done by operator)
-            state.protocolReward0 = state.amountAdded0 * protocolRewardX64 / Q64;
-            state.protocolReward1 = state.amountAdded1 * protocolRewardX64 / Q64;
+            if (!config.onlyFees) {
+                state.protocolReward0 = state.amountAdded0 * params.rewardX64 / Q64;
+                state.protocolReward1 = state.amountAdded1 * params.rewardX64 / Q64;
+                state.amount0 -= state.protocolReward0;
+                state.amount1 -= state.protocolReward1;
+            }
 
             // send leftover to owner
-            if (state.amount0 - state.protocolReward0 - state.amountAdded0 > 0) {
-                _transferToken(state.owner, IERC20(state.token0), state.amount0 - state.protocolReward0 - state.amountAdded0, true);
+            if (state.amount0 - state.amountAdded0 > 0) {
+                _transferToken(state.owner, IERC20(state.token0), state.amount0 - state.amountAdded0, true);
             }
-            if (state.amount1 - state.protocolReward1 - state.amountAdded1 > 0) {
-                _transferToken(state.owner, IERC20(state.token1), state.amount1 - state.protocolReward1 - state.amountAdded1, true);
+            if (state.amount1 - state.amountAdded1 > 0) {
+                _transferToken(state.owner, IERC20(state.token1), state.amount1 - state.amountAdded1, true);
             }
 
             // copy token config for new token
@@ -198,12 +219,13 @@ contract AutoRange is Automator {
                 config.lowerTickDelta,
                 config.upperTickDelta,
                 config.token0SlippageX64,
-                config.token1SlippageX64
+                config.token1SlippageX64,
+                config.onlyFees
             );
 
             // delete config for old position
             delete positionConfigs[params.tokenId];
-            emit PositionConfigured(params.tokenId, 0, 0, 0, 0, 0, 0);
+            emit PositionConfigured(params.tokenId, 0, 0, 0, 0, 0, 0, false);
 
             emit RangeChanged(params.tokenId, state.newTokenId);
 
@@ -234,7 +256,8 @@ contract AutoRange is Automator {
             config.lowerTickDelta,
             config.upperTickDelta,
             config.token0SlippageX64,
-            config.token1SlippageX64
+            config.token1SlippageX64,
+            config.onlyFees
         );
     }
 

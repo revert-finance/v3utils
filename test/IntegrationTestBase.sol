@@ -21,6 +21,8 @@ abstract contract IntegrationTestBase is Test {
     address constant OPERATOR_ACCOUNT = 0xF977814e90dA44bFA03b6295A0616a897441aceC;
     address constant WITHDRAWER_ACCOUNT = 0xF977814e90dA44bFA03b6295A0616a897441aceC;
 
+    uint64 constant MAX_REWARD = uint64(Q64 / 400); //0.25%
+    uint64 constant MAX_FEE_REWARD = uint64(Q64 / 20); //5%
 
     address FACTORY = 0x1F98431c8aD98523631AE4a59f267346ea31F984;
 

@@ -29,11 +29,12 @@ contract AutoExit is Automator {
         int24 token0TriggerTick,
         int24 token1TriggerTick,
         uint64 token0SlippageX64,
-        uint64 token1SlippageX64
+        uint64 token1SlippageX64,
+        bool onlyFees
     );
 
-    constructor(INonfungiblePositionManager _npm, address _operator, address _withdrawer, uint32 _TWAPSeconds, uint16 _maxTWAPTickDifference, uint64 _protocolRewardX64, address[] memory _swapRouterOptions) 
-        Automator(_npm, _operator, _withdrawer, _TWAPSeconds, _maxTWAPTickDifference,  _protocolRewardX64, _swapRouterOptions) {
+    constructor(INonfungiblePositionManager _npm, address _operator, address _withdrawer, uint32 _TWAPSeconds, uint16 _maxTWAPTickDifference, uint64 _maxProtocolRewardX64, uint64 _maxFeeProtocolRewardX64, address[] memory _swapRouterOptions) 
+        Automator(_npm, _operator, _withdrawer, _TWAPSeconds, _maxTWAPTickDifference, _maxProtocolRewardX64, _maxFeeProtocolRewardX64, _swapRouterOptions) {
     }
 
     // define how stoploss / limit should be handled
@@ -48,6 +49,7 @@ contract AutoExit is Automator {
         // max price difference from current pool price for swap / Q64
         uint64 token0SlippageX64; // when token 0 is swapped to token 1
         uint64 token1SlippageX64; // when token 1 is swapped to token 0
+        bool onlyFees; // if only fees maybe used for protocol reward
     }
 
     // configured tokens
@@ -61,6 +63,7 @@ contract AutoExit is Automator {
         uint256 amountRemoveMin0; // min amount to be removed from liquidity
         uint256 amountRemoveMin1; // min amount to be removed from liquidity
         uint256 deadline; // for uniswap operations - operator promises fair value
+        uint64 rewardX64; // which reward will be used for protocol, can be max configured amount (considering onlyFees)
     }
 
     struct ExecuteState {
@@ -72,6 +75,8 @@ contract AutoExit is Automator {
         uint128 liquidity;
         uint256 amount0;
         uint256 amount1;
+        uint256 feeAmount0;
+        uint256 feeAmount1;
         uint256 amountOutMin;
         uint256 amountInDelta;
         uint256 amountOutDelta;
@@ -101,6 +106,10 @@ contract AutoExit is Automator {
             revert NotConfigured();
         }
 
+        if (config.onlyFees && params.rewardX64 > maxFeeProtocolRewardX64 || !config.onlyFees && params.rewardX64 > maxProtocolRewardX64) {
+            revert ExceedsMaxReward();
+        }
+
         // get position info
         (,,state.token0, state.token1, state.fee, state.tickLower, state.tickUpper, state.liquidity, , , , ) =  nonfungiblePositionManager.positions(params.tokenId);
 
@@ -124,12 +133,18 @@ contract AutoExit is Automator {
         state.isSwap = !state.isAbove && config.token0Swap || state.isAbove && config.token1Swap;
        
         // decrease full liquidity for given position - and return fees as well
-        (state.amount0, state.amount1) = _decreaseFullLiquidityAndCollect(params.tokenId, state.liquidity, params.amountRemoveMin0, params.amountRemoveMin1, params.deadline);
+        (state.amount0, state.amount1, state.feeAmount0, state.feeAmount1) = _decreaseFullLiquidityAndCollect(params.tokenId, state.liquidity, params.amountRemoveMin0, params.amountRemoveMin1, params.deadline);
 
         // swap to other token
         if (state.isSwap) {
             if (params.swapData.length == 0) {
                 revert MissingSwapData();
+            }
+
+            // reward is taken before swap - if from fees only
+            if (config.onlyFees) {
+                state.amount0 -= state.feeAmount0 * params.rewardX64 / Q64;
+                state.amount1 -= state.feeAmount1 * params.rewardX64 / Q64;
             }
 
             state.swapAmount = state.isAbove ? state.amount1 : state.amount0;
@@ -141,16 +156,21 @@ contract AutoExit is Automator {
 
             state.amount0 = state.isAbove ? state.amount0 + state.amountOutDelta : state.amount0 - state.amountInDelta;
             state.amount1 = state.isAbove ? state.amount1 - state.amountInDelta : state.amount1 + state.amountOutDelta;
-        }
-     
-        // when swap - protocol reward is removed only from target token (to incentivize optimal swap done by operator)
-        if (state.isAbove && state.isSwap || !state.isSwap) {
-            state.amount0 -= state.amount0 * protocolRewardX64 / Q64;
-        }
-        if (!state.isAbove && state.isSwap || !state.isSwap) {
-            state.amount1 -= state.amount1 * protocolRewardX64 / Q64;
-        }
 
+            // when swap and !onlyFees - protocol reward is removed only from target token (to incentivize optimal swap done by operator)
+            if (!config.onlyFees) {
+                if (state.isAbove) {
+                    state.amount0 -= state.amount0 * params.rewardX64 / Q64;
+                } else {
+                    state.amount1 -= state.amount1 * params.rewardX64 / Q64;
+                }
+            }
+        } else {
+            // reward is taken as configured
+            state.amount0 -= (config.onlyFees ? state.feeAmount0 : state.amount0) * params.rewardX64 / Q64;
+            state.amount1 -= (config.onlyFees ? state.feeAmount1 : state.amount1) * params.rewardX64 / Q64;
+        }
+ 
         state.owner = nonfungiblePositionManager.ownerOf(params.tokenId);
         if (state.amount0 > 0) {
             _transferToken(state.owner, IERC20(state.token0), state.amount0, true);
@@ -161,7 +181,7 @@ contract AutoExit is Automator {
 
         // delete config for position
         delete positionConfigs[params.tokenId];
-        emit PositionConfigured(params.tokenId, false, false, false, 0, 0, 0, 0);
+        emit PositionConfigured(params.tokenId, false, false, false, 0, 0, 0, 0, false);
 
         // log event
         emit Executed(params.tokenId, msg.sender, state.isSwap, state.amount0, state.amount1, state.token0, state.token1);
@@ -191,7 +211,8 @@ contract AutoExit is Automator {
             config.token0TriggerTick,
             config.token1TriggerTick,
             config.token0SlippageX64,
-            config.token1SlippageX64
+            config.token1SlippageX64,
+            config.onlyFees
         );
     }
 }
