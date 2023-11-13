@@ -95,7 +95,7 @@ contract AutoExit is Automator {
      * Can only be called only from configured operator account
      * Swap needs to be done with max price difference from current pool price - otherwise reverts
      */
-    function execute(ExecuteParams memory params) external {
+    function execute(ExecuteParams calldata params) external {
 
         if (!operators[msg.sender]) {
             revert Unauthorized();
@@ -191,7 +191,7 @@ contract AutoExit is Automator {
 
     // function to configure a token to be used with this runner
     // it needs to have approvals set for this contract beforehand
-    function configToken(uint256 tokenId, PositionConfig memory config) external {
+    function configToken(uint256 tokenId, PositionConfig calldata config) external {
         address owner = nonfungiblePositionManager.ownerOf(tokenId);
         if (owner != msg.sender) {
             revert Unauthorized();
