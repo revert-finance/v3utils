@@ -414,7 +414,7 @@ contract V3Utils is IERC721Receiver {
 
     // swap and mint logic
     function _swapAndMint(SwapAndMintParams memory params, bool unwrap) internal returns (uint256 tokenId, uint128 liquidity, uint256 added0, uint256 added1) {
-
+        
         (uint256 total0, uint256 total1) = _swapAndPrepareAmounts(params, unwrap);
 
         INonfungiblePositionManager.MintParams memory mintParams = 
@@ -509,6 +509,7 @@ contract V3Utils is IERC721Receiver {
     }
 
     // returns leftover token balances
+    // viewed
     function _returnLeftoverTokens(address to, IERC20 token0, IERC20 token1, uint256 total0, uint256 total1, uint256 added0, uint256 added1, bool unwrap) internal {
 
         uint256 left0 = total0 - added0;
@@ -524,6 +525,7 @@ contract V3Utils is IERC721Receiver {
     }
 
     // transfers token (or unwraps WETH and sends ETH)
+    // viewed
     function _transferToken(address to, IERC20 token, uint256 amount, bool unwrap) internal {
         if (address(weth) == address(token) && unwrap) {
             weth.withdraw(amount);
@@ -544,20 +546,16 @@ contract V3Utils is IERC721Receiver {
             uint256 balanceInBefore = tokenIn.balanceOf(address(this));
             uint256 balanceOutBefore = tokenOut.balanceOf(address(this));
 
-            // get router specific swap data
-            (address allowanceTarget, bytes memory data) = abi.decode(swapData, (address, bytes));
-
             // approve needed amount
-            SafeERC20.safeApprove(tokenIn, allowanceTarget, amountIn);
-
+            SafeERC20.safeApprove(tokenIn, swapRouter, amountIn);
             // execute swap
-            (bool success,) = swapRouter.call(data);
+            (bool success,) = swapRouter.call(swapData);
             if (!success) {
                 revert SwapFailed();
             }
 
             // reset approval
-            SafeERC20.safeApprove(tokenIn, allowanceTarget, 0);
+            SafeERC20.safeApprove(tokenIn, swapRouter, 0);
 
             uint256 balanceInAfter = tokenIn.balanceOf(address(this));
             uint256 balanceOutAfter = tokenOut.balanceOf(address(this));
@@ -576,6 +574,7 @@ contract V3Utils is IERC721Receiver {
     }
 
     // decreases liquidity from uniswap v3 position
+    // viewed
     function _decreaseLiquidity(uint256 tokenId, uint128 liquidity, uint256 deadline, uint256 token0Min, uint256 token1Min) internal returns (uint256 amount0, uint256 amount1) {
         if (liquidity != 0) {
             (amount0, amount1) = nonfungiblePositionManager.decreaseLiquidity(
@@ -591,6 +590,7 @@ contract V3Utils is IERC721Receiver {
     }
 
     // collects specified amount of fees from uniswap v3 position
+    // viewed
     function _collectFees(uint256 tokenId, IERC20 token0, IERC20 token1, uint128 collectAmount0, uint128 collectAmount1) internal returns (uint256 amount0, uint256 amount1) {
         uint256 balanceBefore0 = token0.balanceOf(address(this));
         uint256 balanceBefore1 = token1.balanceOf(address(this));

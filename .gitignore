@@ -6,3 +6,8 @@ out/
 !/broadcast
 /broadcast/*
 /broadcast/*/31337/
+
+.vscode/
+.utils/
+go.mod
+go.sum
