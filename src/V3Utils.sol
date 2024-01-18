@@ -8,6 +8,8 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 import "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
+import "forge-std/console.sol";
+
 /// @title v3Utils v1.0
 /// @notice Utility functions for Uniswap V3 positions
 /// This is a completely ownerless/stateless contract - does not hold any ERC20 or NFTs.
@@ -414,7 +416,6 @@ contract V3Utils is IERC721Receiver {
 
     // swap and mint logic
     function _swapAndMint(SwapAndMintParams memory params, bool unwrap) internal returns (uint256 tokenId, uint128 liquidity, uint256 added0, uint256 added1) {
-        
         (uint256 total0, uint256 total1) = _swapAndPrepareAmounts(params, unwrap);
 
         INonfungiblePositionManager.MintParams memory mintParams = 
