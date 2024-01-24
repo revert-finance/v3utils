@@ -11,3 +11,4 @@ out/
 .utils/
 go.mod
 go.sum
+.env

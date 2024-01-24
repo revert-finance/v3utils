@@ -8,8 +8,6 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 import "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
-import "forge-std/console.sol";
-
 /// @title v3Utils v1.0
 /// @notice Utility functions for Uniswap V3 positions
 /// This is a completely ownerless/stateless contract - does not hold any ERC20 or NFTs.
@@ -24,7 +22,7 @@ contract V3Utils is IERC721Receiver {
     /// @notice Uniswap v3 position manager
     INonfungiblePositionManager immutable public nonfungiblePositionManager;
 
-    /// @notice 0x Exchange Proxy
+    /// @notice Krystal Exchange Proxy
     address immutable public swapRouter;
 
     // error types
