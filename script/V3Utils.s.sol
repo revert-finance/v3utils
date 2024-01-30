@@ -10,7 +10,7 @@ contract MyScript is Script {
         vm.startBroadcast(deployerPrivateKey);
 
         INonfungiblePositionManager NPM = INonfungiblePositionManager(0xC36442b4a4522E871399CD717aBDD847Ab11FE88);
-        address KRYSTAL_ROUTER = 0x70270C228c5B4279d1578799926873aa72446CcD;
+        address KRYSTAL_ROUTER = 0x864F01c5E46b0712643B956BcA607bF883e0dbC5;
 
         V3Utils v3Utils = new V3Utils(NPM, KRYSTAL_ROUTER);
 
