@@ -41,11 +41,11 @@ source .env
 ```
 
 ```
-forge script script/V3Utils.s.sol:MyScript --rpc-url $POLYGON_RPC_URL --broadcast --verify -vvvv
+forge script script/V3Utils.s.sol:MyScript --legacy --with-gas-price 100000000 --rpc-url $ARBITRUM_RPC_URL --broadcast --verify -vvvv
 ```
 
 # Verify Contract
 ```
-forge verify-contract --chain-id 137 --etherscan-api-key $POLYGONSCAN_API_KEY --verifier-url https://api.polygonscan.com/api/ 0xF7216A27fd692fDBcBc84Fa3B7c9536206a679DF src/V3Utils.sol:V3Utils --constructor-args $(cast abi-encode "constructor(address,address)" "0xC36442b4a4522E871399CD717aBDD847Ab11FE88" "0x70270C228c5B4279d1578799926873aa72446CcD")
+forge verify-contract --chain-id 42161 --etherscan-api-key $ARBISCAN_API_KEY --verifier-url https://api.arbiscan.io/api/ 0x9782d88f904f06ffce8f08657aa7bfe0d26bd483 src/V3Utils.sol:V3Utils --constructor-args $(cast abi-encode "constructor(address,address)" "0xC36442b4a4522E871399CD717aBDD847Ab11FE88" "0x864F01c5E46b0712643B956BcA607bF883e0dbC5")
 ```
 

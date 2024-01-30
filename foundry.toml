@@ -10,7 +10,9 @@ solc-version = "0.8.23"
 [rpc_endpoints]
 goerli = "${GOERLI_RPC_URL}"
 polygon = "${POLYGON_RPC_URL}"
+arbitrum = "${ARBITRUM_RPC_URL}"
 
 [etherscan]
 goerli = { key = "${ETHERSCAN_API_KEY}" }
 polygon = { key = "${POLYGONSCAN_API_KEY}" }
+arbitrum = { key = "${ARBISCAN_API_KEY}" }
