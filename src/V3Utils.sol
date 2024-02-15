@@ -353,6 +353,8 @@ contract V3Utils is IERC721Receiver {
     /// @param params Swap and increase liquidity configuration
     // Sends any leftover tokens to recipient.
     function swapAndIncreaseLiquidity(SwapAndIncreaseLiquidityParams calldata params) external payable returns (uint128 liquidity, uint256 amount0, uint256 amount1) {
+        address owner = params.nfpm.ownerOf(params.tokenId);
+        require(owner == msg.sender, "sender is not owner of position");
         (, , address token0, address token1, , , , , , , , ) = params.nfpm.positions(params.tokenId);
         IWETH9 weth = IWETH9(params.nfpm.WETH9());
         _prepareAdd(weth, IERC20(token0), IERC20(token1), params.swapSourceToken, params.amount0, params.amount1, params.amountIn0 + params.amountIn1);
