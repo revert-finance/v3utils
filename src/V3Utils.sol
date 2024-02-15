@@ -7,6 +7,7 @@ import "v3-periphery/interfaces/external/IWETH9.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 import "@openzeppelin/contracts/utils/math/SafeCast.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
 
 /// @title v3Utils v1.0
 /// @notice Utility functions for Uniswap V3 positions
@@ -15,12 +16,6 @@ import "@openzeppelin/contracts/utils/math/SafeCast.sol";
 contract V3Utils is IERC721Receiver {
 
     using SafeCast for uint256;
-
-    /// @notice Wrapped native token address
-    IWETH9 immutable public weth;
-
-    /// @notice Uniswap v3 position manager
-    INonfungiblePositionManager immutable public nonfungiblePositionManager;
 
     /// @notice Krystal Exchange Proxy
     address immutable public swapRouter;
@@ -50,11 +45,8 @@ contract V3Utils is IERC721Receiver {
     event SwapAndIncreaseLiquidity(uint256 indexed tokenId, uint128 liquidity, uint256 amount0, uint256 amount1);
 
     /// @notice Constructor
-    /// @param _nonfungiblePositionManager Uniswap v3 position manager
-    /// @param _swapRouter 0x Exchange Proxy
-    constructor(INonfungiblePositionManager _nonfungiblePositionManager, address _swapRouter) {
-        weth = IWETH9(_nonfungiblePositionManager.WETH9());
-        nonfungiblePositionManager = _nonfungiblePositionManager;
+    /// @param _swapRouter Krystal Exchange Proxy
+    constructor(address _swapRouter) {
         swapRouter = _swapRouter;
     }
 
@@ -124,13 +116,25 @@ contract V3Utils is IERC721Receiver {
         bytes swapAndMintReturnData;
     }
 
+    struct ReturnLeftoverTokensParams{
+        IWETH9 weth;
+        address to;
+        IERC20 token0;
+        IERC20 token1;
+        uint256 total0;
+        uint256 total1;
+        uint256 added0;
+        uint256 added1;
+        bool unwrap;
+    }
+
     /// @notice Execute instruction by pulling approved NFT instead of direct safeTransferFrom call from owner
     /// @param tokenId Token to process
     /// @param instructions Instructions to execute
-    function execute(uint256 tokenId, Instructions calldata instructions) external
+    function execute(INonfungiblePositionManager _nfpm, uint256 tokenId, Instructions calldata instructions) external
     {
         // must be approved beforehand
-        nonfungiblePositionManager.safeTransferFrom(
+        _nfpm.safeTransferFrom(
             msg.sender,
             address(this),
             tokenId,
@@ -142,11 +146,7 @@ contract V3Utils is IERC721Receiver {
     /// At the end the NFT (and any newly minted NFT) is returned to sender. The leftover tokens are sent to instructions.recipient.
     function onERC721Received(address, address from, uint256 tokenId, bytes calldata data) external override returns (bytes4) {
 
-        // only Uniswap v3 NFTs allowed
-        if (msg.sender != address(nonfungiblePositionManager)) {
-            revert WrongContract();
-        }
-
+        INonfungiblePositionManager nfpm = INonfungiblePositionManager(msg.sender);
         // not allowed to send to itself
         if (from == address(this)) {
             revert SelfSend();
@@ -154,14 +154,14 @@ contract V3Utils is IERC721Receiver {
 
         Instructions memory instructions = abi.decode(data, (Instructions));
 
-        (,,address token0,address token1,,,,uint128 liquidity,,,,) = nonfungiblePositionManager.positions(tokenId);
+        (,,address token0,address token1,,,,uint128 liquidity,,,,) = nfpm.positions(tokenId);
 
         uint256 amount0;
         uint256 amount1;
         if (instructions.liquidity != 0) {
-            (amount0, amount1) = _decreaseLiquidity(tokenId, instructions.liquidity, instructions.deadline, instructions.amountRemoveMin0, instructions.amountRemoveMin1);
+            (amount0, amount1) = _decreaseLiquidity(nfpm, tokenId, instructions.liquidity, instructions.deadline, instructions.amountRemoveMin0, instructions.amountRemoveMin1);
         }
-        (amount0, amount1) = _collectFees(tokenId, IERC20(token0), IERC20(token1), instructions.feeAmount0 == type(uint128).max ? type(uint128).max : (amount0 + instructions.feeAmount0).toUint128(), instructions.feeAmount1 == type(uint128).max ? type(uint128).max : (amount1 + instructions.feeAmount1).toUint128());
+        (amount0, amount1) = _collectFees(nfpm, tokenId, IERC20(token0), IERC20(token1), instructions.feeAmount0 == type(uint128).max ? type(uint128).max : (amount0 + instructions.feeAmount0).toUint128(), instructions.feeAmount1 == type(uint128).max ? type(uint128).max : (amount1 + instructions.feeAmount1).toUint128());
         
         // check if enough tokens are available for swaps
         if (amount0 < instructions.amountIn0 || amount1 < instructions.amountIn1) {
@@ -170,12 +170,12 @@ contract V3Utils is IERC721Receiver {
 
         if (instructions.whatToDo == WhatToDo.COMPOUND_FEES) {
             if (instructions.targetToken == token0) {
-                (liquidity, amount0, amount1) = _swapAndIncrease(SwapAndIncreaseLiquidityParams(tokenId, amount0, amount1, instructions.recipient, instructions.deadline, IERC20(token1), instructions.amountIn1, instructions.amountOut1Min, instructions.swapData1, 0, 0, "", instructions.amountAddMin0, instructions.amountAddMin1), IERC20(token0), IERC20(token1), instructions.unwrap);
+                (liquidity, amount0, amount1) = _swapAndIncrease(SwapAndIncreaseLiquidityParams(nfpm, tokenId, amount0, amount1, instructions.recipient, instructions.deadline, IERC20(token1), instructions.amountIn1, instructions.amountOut1Min, instructions.swapData1, 0, 0, "", instructions.amountAddMin0, instructions.amountAddMin1), IERC20(token0), IERC20(token1), instructions.unwrap);
             } else if (instructions.targetToken == token1) {
-                (liquidity, amount0, amount1) = _swapAndIncrease(SwapAndIncreaseLiquidityParams(tokenId, amount0, amount1, instructions.recipient, instructions.deadline, IERC20(token0), 0, 0, "", instructions.amountIn0, instructions.amountOut0Min, instructions.swapData0, instructions.amountAddMin0, instructions.amountAddMin1), IERC20(token0), IERC20(token1), instructions.unwrap);
+                (liquidity, amount0, amount1) = _swapAndIncrease(SwapAndIncreaseLiquidityParams(nfpm, tokenId, amount0, amount1, instructions.recipient, instructions.deadline, IERC20(token0), 0, 0, "", instructions.amountIn0, instructions.amountOut0Min, instructions.swapData0, instructions.amountAddMin0, instructions.amountAddMin1), IERC20(token0), IERC20(token1), instructions.unwrap);
             } else {
                 // no swap is done here
-                (liquidity,amount0, amount1) = _swapAndIncrease(SwapAndIncreaseLiquidityParams(tokenId, amount0, amount1, instructions.recipient, instructions.deadline, IERC20(address(0)), 0, 0, "", 0, 0, "", instructions.amountAddMin0, instructions.amountAddMin1), IERC20(token0), IERC20(token1), instructions.unwrap);
+                (liquidity,amount0, amount1) = _swapAndIncrease(SwapAndIncreaseLiquidityParams(nfpm, tokenId, amount0, amount1, instructions.recipient, instructions.deadline, IERC20(address(0)), 0, 0, "", 0, 0, "", instructions.amountAddMin0, instructions.amountAddMin1), IERC20(token0), IERC20(token1), instructions.unwrap);
             }
             emit CompoundFees(tokenId, liquidity, amount0, amount1);            
         } else if (instructions.whatToDo == WhatToDo.CHANGE_RANGE) {
@@ -183,21 +183,22 @@ contract V3Utils is IERC721Receiver {
             uint256 newTokenId;
 
             if (instructions.targetToken == token0) {
-                (newTokenId,,,) = _swapAndMint(SwapAndMintParams(IERC20(token0), IERC20(token1), instructions.fee, instructions.tickLower, instructions.tickUpper, amount0, amount1, instructions.recipient, instructions.recipientNFT, instructions.deadline, IERC20(token1), instructions.amountIn1, instructions.amountOut1Min, instructions.swapData1, 0, 0, "", instructions.amountAddMin0, instructions.amountAddMin1, instructions.swapAndMintReturnData), instructions.unwrap);
+                (newTokenId,,,) = _swapAndMint(SwapAndMintParams(nfpm, IERC20(token0), IERC20(token1), instructions.fee, instructions.tickLower, instructions.tickUpper, amount0, amount1, instructions.recipient, instructions.recipientNFT, instructions.deadline, IERC20(token1), instructions.amountIn1, instructions.amountOut1Min, instructions.swapData1, 0, 0, "", instructions.amountAddMin0, instructions.amountAddMin1, instructions.swapAndMintReturnData), instructions.unwrap);
             } else if (instructions.targetToken == token1) {
-                (newTokenId,,,) = _swapAndMint(SwapAndMintParams(IERC20(token0), IERC20(token1), instructions.fee, instructions.tickLower, instructions.tickUpper, amount0, amount1, instructions.recipient, instructions.recipientNFT, instructions.deadline, IERC20(token0), 0, 0, "", instructions.amountIn0, instructions.amountOut0Min, instructions.swapData0, instructions.amountAddMin0, instructions.amountAddMin1, instructions.swapAndMintReturnData), instructions.unwrap);
+                (newTokenId,,,) = _swapAndMint(SwapAndMintParams(nfpm, IERC20(token0), IERC20(token1), instructions.fee, instructions.tickLower, instructions.tickUpper, amount0, amount1, instructions.recipient, instructions.recipientNFT, instructions.deadline, IERC20(token0), 0, 0, "", instructions.amountIn0, instructions.amountOut0Min, instructions.swapData0, instructions.amountAddMin0, instructions.amountAddMin1, instructions.swapAndMintReturnData), instructions.unwrap);
             } else {
                 // no swap is done here
-                (newTokenId,,,) = _swapAndMint(SwapAndMintParams(IERC20(token0), IERC20(token1), instructions.fee, instructions.tickLower, instructions.tickUpper, amount0, amount1, instructions.recipient, instructions.recipientNFT, instructions.deadline, IERC20(address(0)), 0, 0, "", 0, 0, "", instructions.amountAddMin0, instructions.amountAddMin1, instructions.swapAndMintReturnData), instructions.unwrap);
+                (newTokenId,,,) = _swapAndMint(SwapAndMintParams(nfpm, IERC20(token0), IERC20(token1), instructions.fee, instructions.tickLower, instructions.tickUpper, amount0, amount1, instructions.recipient, instructions.recipientNFT, instructions.deadline, IERC20(address(0)), 0, 0, "", 0, 0, "", instructions.amountAddMin0, instructions.amountAddMin1, instructions.swapAndMintReturnData), instructions.unwrap);
             }
 
             emit ChangeRange(tokenId, newTokenId);
         } else if (instructions.whatToDo == WhatToDo.WITHDRAW_AND_COLLECT_AND_SWAP) {
+            IWETH9 weth = IWETH9(nfpm.WETH9());
             uint256 targetAmount;
             if (token0 != instructions.targetToken) {
                 (uint256 amountInDelta, uint256 amountOutDelta) = _swap(IERC20(token0), IERC20(instructions.targetToken), amount0, instructions.amountOut0Min, instructions.swapData0);
                 if (amountInDelta < amount0) {
-                    _transferToken(instructions.recipient, IERC20(token0), amount0 - amountInDelta, instructions.unwrap);
+                    _transferToken(weth, instructions.recipient, IERC20(token0), amount0 - amountInDelta, instructions.unwrap);
                 }
                 targetAmount += amountOutDelta;
             } else {
@@ -206,7 +207,7 @@ contract V3Utils is IERC721Receiver {
             if (token1 != instructions.targetToken) {
                 (uint256 amountInDelta, uint256 amountOutDelta) = _swap(IERC20(token1), IERC20(instructions.targetToken), amount1, instructions.amountOut1Min, instructions.swapData1);
                 if (amountInDelta < amount1) {
-                    _transferToken(instructions.recipient, IERC20(token1), amount1 - amountInDelta, instructions.unwrap);
+                    _transferToken(weth, instructions.recipient, IERC20(token1), amount1 - amountInDelta, instructions.unwrap);
                 }
                 targetAmount += amountOutDelta;
             } else {
@@ -215,7 +216,7 @@ contract V3Utils is IERC721Receiver {
 
             // send complete target amount
             if (targetAmount != 0 && instructions.targetToken != address(0)) {
-                _transferToken(instructions.recipient, IERC20(instructions.targetToken), targetAmount, instructions.unwrap);
+                _transferToken(weth, instructions.recipient, IERC20(instructions.targetToken), targetAmount, instructions.unwrap);
             }
 
             emit WithdrawAndCollectAndSwap(tokenId, instructions.targetToken, targetAmount);
@@ -224,13 +225,14 @@ contract V3Utils is IERC721Receiver {
         }
         
         // return token to owner (this line guarantees that token is returned to originating owner)
-        nonfungiblePositionManager.safeTransferFrom(address(this), from, tokenId, instructions.returnData);
+        nfpm.safeTransferFrom(address(this), from, tokenId, instructions.returnData);
 
         return IERC721Receiver.onERC721Received.selector;
     }
 
     /// @notice Params for swap() function
     struct SwapParams {
+        IWETH9 weth;
         IERC20 tokenIn;
         IERC20 tokenOut;
         uint256 amountIn;
@@ -250,25 +252,26 @@ contract V3Utils is IERC721Receiver {
             revert SameToken();
         }
 
-        _prepareAdd(params.tokenIn, IERC20(address(0)), IERC20(address(0)), params.amountIn, 0, 0);
+        _prepareAdd(params.weth, params.tokenIn, IERC20(address(0)), IERC20(address(0)), params.amountIn, 0, 0);
 
         uint256 amountInDelta;
         (amountInDelta, amountOut) = _swap(params.tokenIn, params.tokenOut, params.amountIn, params.minAmountOut, params.swapData);
 
         // send swapped amount of tokenOut
         if (amountOut != 0) {
-            _transferToken(params.recipient, params.tokenOut, amountOut, params.unwrap);
+            _transferToken(params.weth, params.recipient, params.tokenOut, amountOut, params.unwrap);
         }
 
         // if not all was swapped - return leftovers of tokenIn
         uint256 leftOver = params.amountIn - amountInDelta;
         if (leftOver != 0) {
-            _transferToken(params.recipient, params.tokenIn, leftOver, params.unwrap);
+            _transferToken(params.weth, params.recipient, params.tokenIn, leftOver, params.unwrap);
         }
     }
 
     /// @notice Params for swapAndMint() function
     struct SwapAndMintParams {
+        INonfungiblePositionManager nfpm;
         IERC20 token0;
         IERC20 token1;
         uint24 fee;
@@ -311,12 +314,14 @@ contract V3Utils is IERC721Receiver {
         if (params.token0 == params.token1) {
             revert SameToken();
         }
-        _prepareAdd(params.token0, params.token1, params.swapSourceToken, params.amount0, params.amount1, params.amountIn0 + params.amountIn1);
+        IWETH9 weth = IWETH9(params.nfpm.WETH9());
+        _prepareAdd(weth, params.token0, params.token1, params.swapSourceToken, params.amount0, params.amount1, params.amountIn0 + params.amountIn1);
         (tokenId, liquidity, amount0, amount1) = _swapAndMint(params, msg.value != 0);
     }
 
     /// @notice Params for swapAndIncreaseLiquidity() function
     struct SwapAndIncreaseLiquidityParams {
+        INonfungiblePositionManager nfpm;
         uint256 tokenId;
 
         // how much is provided of token0 and token1
@@ -348,14 +353,17 @@ contract V3Utils is IERC721Receiver {
     /// @param params Swap and increase liquidity configuration
     // Sends any leftover tokens to recipient.
     function swapAndIncreaseLiquidity(SwapAndIncreaseLiquidityParams calldata params) external payable returns (uint128 liquidity, uint256 amount0, uint256 amount1) {
-        (, , address token0, address token1, , , , , , , , ) = nonfungiblePositionManager.positions(params.tokenId);
-        _prepareAdd(IERC20(token0), IERC20(token1), params.swapSourceToken, params.amount0, params.amount1, params.amountIn0 + params.amountIn1);
+        address owner = params.nfpm.ownerOf(params.tokenId);
+        require(owner == msg.sender, "sender is not owner of position");
+        (, , address token0, address token1, , , , , , , , ) = params.nfpm.positions(params.tokenId);
+        IWETH9 weth = IWETH9(params.nfpm.WETH9());
+        _prepareAdd(weth, IERC20(token0), IERC20(token1), params.swapSourceToken, params.amount0, params.amount1, params.amountIn0 + params.amountIn1);
         (liquidity, amount0, amount1) = _swapAndIncrease(params, IERC20(token0), IERC20(token1), msg.value != 0);
     }
 
     // checks if required amounts are provided and are exact - wraps any provided ETH as WETH
     // if less or more provided reverts
-    function _prepareAdd(IERC20 token0, IERC20 token1, IERC20 otherToken, uint256 amount0, uint256 amount1, uint256 amountOther) internal
+    function _prepareAdd(IWETH9 weth, IERC20 token0, IERC20 token1, IERC20 otherToken, uint256 amount0, uint256 amount1, uint256 amountOther) internal
     {
         uint256 amountAdded0;
         uint256 amountAdded1;
@@ -415,7 +423,6 @@ contract V3Utils is IERC721Receiver {
     // swap and mint logic
     function _swapAndMint(SwapAndMintParams memory params, bool unwrap) internal returns (uint256 tokenId, uint128 liquidity, uint256 added0, uint256 added1) {
         (uint256 total0, uint256 total1) = _swapAndPrepareAmounts(params, unwrap);
-
         INonfungiblePositionManager.MintParams memory mintParams = 
             INonfungiblePositionManager.MintParams(
                 address(params.token0), 
@@ -432,19 +439,19 @@ contract V3Utils is IERC721Receiver {
             );
 
         // mint is done to address(this) because it is not a safemint and safeTransferFrom needs to be done manually afterwards
-        (tokenId,liquidity,added0,added1) = nonfungiblePositionManager.mint(mintParams);
-        nonfungiblePositionManager.safeTransferFrom(address(this), params.recipientNFT, tokenId, params.returnData);
+        (tokenId,liquidity,added0,added1) = params.nfpm.mint(mintParams);
+        params.nfpm.safeTransferFrom(address(this), params.recipientNFT, tokenId, params.returnData);
 
         emit SwapAndMint(tokenId, liquidity, added0, added1);
-
-        _returnLeftoverTokens(params.recipient, params.token0, params.token1, total0, total1, added0, added1, unwrap);
+        
+        IWETH9 weth = IWETH9(params.nfpm.WETH9());
+        _returnLeftoverTokens(ReturnLeftoverTokensParams(weth, params.recipient, params.token0, params.token1, total0, total1, added0, added1, unwrap));
     }
 
     // swap and increase logic
     function _swapAndIncrease(SwapAndIncreaseLiquidityParams memory params, IERC20 token0, IERC20 token1, bool unwrap) internal returns (uint128 liquidity, uint256 added0, uint256 added1) {
-
         (uint256 total0, uint256 total1) = _swapAndPrepareAmounts(
-            SwapAndMintParams(token0, token1, 0, 0, 0, params.amount0, params.amount1, params.recipient, params.recipient, params.deadline, params.swapSourceToken, params.amountIn0, params.amountOut0Min, params.swapData0, params.amountIn1, params.amountOut1Min, params.swapData1, params.amountAddMin0, params.amountAddMin1, ""), unwrap);
+            SwapAndMintParams(params.nfpm, token0, token1, 0, 0, 0, params.amount0, params.amount1, params.recipient, params.recipient, params.deadline, params.swapSourceToken, params.amountIn0, params.amountOut0Min, params.swapData0, params.amountIn1, params.amountOut1Min, params.swapData1, params.amountAddMin0, params.amountAddMin1, ""), unwrap);
 
         INonfungiblePositionManager.IncreaseLiquidityParams memory increaseLiquidityParams = 
             INonfungiblePositionManager.IncreaseLiquidityParams(
@@ -456,14 +463,15 @@ contract V3Utils is IERC721Receiver {
                 params.deadline
             );
 
-        (liquidity, added0, added1) = nonfungiblePositionManager.increaseLiquidity(increaseLiquidityParams);
+        (liquidity, added0, added1) = params.nfpm.increaseLiquidity(increaseLiquidityParams);
 
         emit SwapAndIncreaseLiquidity(params.tokenId, liquidity, added0, added1);
-
-        _returnLeftoverTokens(params.recipient, token0, token1, total0, total1, added0, added1, unwrap);
+        
+        IWETH9 weth = IWETH9(params.nfpm.WETH9());
+        _returnLeftoverTokens(ReturnLeftoverTokensParams(weth, params.recipient, token0, token1, total0, total1, added0, added1, unwrap));
     }
 
-    // swaps available tokens and prepares max amounts to be added to nonfungiblePositionManager
+    // swaps available tokens and prepares max amounts to be added to nfpm
     function _swapAndPrepareAmounts(SwapAndMintParams memory params, bool unwrap) internal returns (uint256 total0, uint256 total1) {
         if (params.swapSourceToken == params.token0) { 
             if (params.amount0 < params.amountIn1) {
@@ -490,7 +498,8 @@ contract V3Utils is IERC721Receiver {
             uint256 leftOver = params.amountIn0 + params.amountIn1 - amountInDelta0 - amountInDelta1;
 
             if (leftOver != 0) {
-                _transferToken(params.recipient, params.swapSourceToken, leftOver, unwrap);
+                IWETH9 weth = IWETH9(params.nfpm.WETH9());
+                _transferToken(weth, params.recipient, params.swapSourceToken, leftOver, unwrap);
             }
         } else {
             total0 = params.amount0;
@@ -498,34 +507,34 @@ contract V3Utils is IERC721Receiver {
         }
 
         if (total0 != 0) {
-            SafeERC20.safeApprove(params.token0, address(nonfungiblePositionManager), 0);
-            SafeERC20.safeApprove(params.token0, address(nonfungiblePositionManager), total0);
+            SafeERC20.safeApprove(params.token0, address(params.nfpm), 0);
+            SafeERC20.safeApprove(params.token0, address(params.nfpm), total0);
         }
         if (total1 != 0) {
-            SafeERC20.safeApprove(params.token1, address(nonfungiblePositionManager), 0);
-            SafeERC20.safeApprove(params.token1, address(nonfungiblePositionManager), total1);
+            SafeERC20.safeApprove(params.token1, address(params.nfpm), 0);
+            SafeERC20.safeApprove(params.token1, address(params.nfpm), total1);
         }
     }
 
     // returns leftover token balances
     // viewed
-    function _returnLeftoverTokens(address to, IERC20 token0, IERC20 token1, uint256 total0, uint256 total1, uint256 added0, uint256 added1, bool unwrap) internal {
+    function _returnLeftoverTokens(ReturnLeftoverTokensParams memory params) internal {
 
-        uint256 left0 = total0 - added0;
-        uint256 left1 = total1 - added1;
+        uint256 left0 = params.total0 - params.added0;
+        uint256 left1 = params.total1 - params.added1;
 
         // return leftovers
         if (left0 != 0) {
-            _transferToken(to, token0, left0, unwrap);
+            _transferToken(params.weth, params.to, params.token0, left0, params.unwrap);
         }
         if (left1 != 0) {
-            _transferToken(to, token1, left1, unwrap);
+            _transferToken(params.weth, params.to, params.token1, left1, params.unwrap);
         }
     }
 
     // transfers token (or unwraps WETH and sends ETH)
     // viewed
-    function _transferToken(address to, IERC20 token, uint256 amount, bool unwrap) internal {
+    function _transferToken(IWETH9 weth, address to, IERC20 token, uint256 amount, bool unwrap) internal {
         if (address(weth) == address(token) && unwrap) {
             weth.withdraw(amount);
             (bool sent, ) = to.call{value: amount}("");
@@ -574,9 +583,9 @@ contract V3Utils is IERC721Receiver {
 
     // decreases liquidity from uniswap v3 position
     // viewed
-    function _decreaseLiquidity(uint256 tokenId, uint128 liquidity, uint256 deadline, uint256 token0Min, uint256 token1Min) internal returns (uint256 amount0, uint256 amount1) {
+    function _decreaseLiquidity(INonfungiblePositionManager nfpm, uint256 tokenId, uint128 liquidity, uint256 deadline, uint256 token0Min, uint256 token1Min) internal returns (uint256 amount0, uint256 amount1) {
         if (liquidity != 0) {
-            (amount0, amount1) = nonfungiblePositionManager.decreaseLiquidity(
+            (amount0, amount1) = nfpm.decreaseLiquidity(
                 INonfungiblePositionManager.DecreaseLiquidityParams(
                     tokenId, 
                     liquidity, 
@@ -590,10 +599,10 @@ contract V3Utils is IERC721Receiver {
 
     // collects specified amount of fees from uniswap v3 position
     // viewed
-    function _collectFees(uint256 tokenId, IERC20 token0, IERC20 token1, uint128 collectAmount0, uint128 collectAmount1) internal returns (uint256 amount0, uint256 amount1) {
+    function _collectFees(INonfungiblePositionManager nfpm, uint256 tokenId, IERC20 token0, IERC20 token1, uint128 collectAmount0, uint128 collectAmount1) internal returns (uint256 amount0, uint256 amount1) {
         uint256 balanceBefore0 = token0.balanceOf(address(this));
         uint256 balanceBefore1 = token1.balanceOf(address(this));
-        (amount0, amount1) = nonfungiblePositionManager.collect(
+        (amount0, amount1) = nfpm.collect(
             INonfungiblePositionManager.CollectParams(tokenId, address(this), collectAmount0, collectAmount1)
         );
         uint256 balanceAfter0 = token0.balanceOf(address(this));
@@ -609,9 +618,5 @@ contract V3Utils is IERC721Receiver {
     }
 
     // needed for WETH unwrapping
-    receive() external payable {
-        if (msg.sender != address(weth)) {
-            revert NotWETH();
-        }
-    }
+    receive() external payable{}
 }

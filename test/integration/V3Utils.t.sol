@@ -208,7 +208,7 @@ contract V3UtilsIntegrationTest is IntegrationTestBase {
         NPM.approve(address(v3utils), TEST_NFT);
 
         vm.prank(TEST_NFT_ACCOUNT);
-        v3utils.execute(TEST_NFT, inst);
+        v3utils.execute(NPM, TEST_NFT, inst);
 
         // now we have 2 NFTs (1 empty)
         uint256 countAfter = NPM.balanceOf(TEST_NFT_ACCOUNT);
@@ -450,6 +450,7 @@ contract V3UtilsIntegrationTest is IntegrationTestBase {
     function testFailEmptySwapAndIncreaseLiquidity() external {
         V3Utils.SwapAndIncreaseLiquidityParams memory params = V3Utils
             .SwapAndIncreaseLiquidityParams(
+                NPM,
                 TEST_NFT,
                 0,
                 0,
@@ -472,9 +473,9 @@ contract V3UtilsIntegrationTest is IntegrationTestBase {
 
     function testSwapAndIncreaseLiquidity() external {
         _writeTokenBalance(TEST_NFT_ACCOUNT, address(USDC), 1000000);
-
         V3Utils.SwapAndIncreaseLiquidityParams memory params = V3Utils
             .SwapAndIncreaseLiquidityParams(
+                NPM,
                 TEST_NFT,
                 0,
                 1000000,
@@ -506,13 +507,63 @@ contract V3UtilsIntegrationTest is IntegrationTestBase {
         assertEq(amount1, 0); // one sided adding
     }
 
-    function testSwapAndIncreaseLiquiditBothSides() external {
+    function testSwapAndIncreaseLiquidityBothSides() external {
+
+        _writeTokenBalance(TEST_NFT_5_ACCOUNT, address(USDC), 3000000);
+        // add liquidity to another positions which is not owned
+
+        V3Utils.SwapAndIncreaseLiquidityParams memory params = V3Utils
+            .SwapAndIncreaseLiquidityParams(
+                NPM,
+                TEST_NFT_5,
+                0,
+                2000000,
+                TEST_NFT_5_ACCOUNT,
+                block.timestamp,
+                USDC,
+                1000000,
+                900000000000000000,
+                _get1USDCToDAISwapData(),
+                0,
+                0,
+                "",
+                0,
+                0
+            );
+
+        vm.prank(TEST_NFT_5_ACCOUNT);
+        USDC.approve(address(v3utils), 3000000);
+
+        uint256 usdcBefore = USDC.balanceOf(TEST_NFT_5_ACCOUNT);
+        uint256 daiBefore = DAI.balanceOf(TEST_NFT_5_ACCOUNT);
+
+        vm.prank(TEST_NFT_5_ACCOUNT);
+        (uint128 liquidity, uint256 amount0, uint256 amount1) = v3utils.swapAndIncreaseLiquidity(params);
+        uint256 usdcAfter = USDC.balanceOf(TEST_NFT_5_ACCOUNT);
+        uint256 daiAfter = DAI.balanceOf(TEST_NFT_5_ACCOUNT);
+
+        // close to 1% of swapped amount
+        uint256 feeBalance = USDC.balanceOf(TEST_FEE_ACCOUNT);
+        assertEq(feeBalance, 3346001);
+
+        assertEq(liquidity, 1610525505274001);
+        assertEq(amount0, 989333334060081225);
+        assertEq(amount1, 620657);
+
+        // all usdc spent
+        assertEq(usdcBefore - usdcAfter, 1000000+amount1);
+        //some dai returned - because not 100% correct swap ratio
+        assertEq(daiAfter - daiBefore, 47);
+    }
+
+    function testSwapAndIncreaseLiquidityInvalidOwner() external {
 
         _writeTokenBalance(TEST_NFT_ACCOUNT, address(USDC), 3000000);
         // add liquidity to another positions which is not owned
 
         V3Utils.SwapAndIncreaseLiquidityParams memory params = V3Utils
             .SwapAndIncreaseLiquidityParams(
+                NPM,
                 TEST_NFT_5,
                 0,
                 2000000,
@@ -532,30 +583,14 @@ contract V3UtilsIntegrationTest is IntegrationTestBase {
         vm.prank(TEST_NFT_ACCOUNT);
         USDC.approve(address(v3utils), 3000000);
 
-        uint256 usdcBefore = USDC.balanceOf(TEST_NFT_ACCOUNT);
-        uint256 daiBefore = DAI.balanceOf(TEST_NFT_ACCOUNT);
-
         vm.prank(TEST_NFT_ACCOUNT);
-        (uint128 liquidity, uint256 amount0, uint256 amount1) = v3utils.swapAndIncreaseLiquidity(params);
-        uint256 usdcAfter = USDC.balanceOf(TEST_NFT_ACCOUNT);
-        uint256 daiAfter = DAI.balanceOf(TEST_NFT_ACCOUNT);
-
-        // close to 1% of swapped amount
-        uint256 feeBalance = USDC.balanceOf(TEST_FEE_ACCOUNT);
-        assertEq(feeBalance, 3346001);
-
-        assertEq(liquidity, 1610525505274001);
-        assertEq(amount0, 989333334060081225);
-        assertEq(amount1, 620657);
-
-        // all usdc spent
-        assertEq(usdcBefore - usdcAfter, 1000000+amount1);
-        //some dai returned - because not 100% correct swap ratio
-        assertEq(daiAfter - daiBefore, 47);
+        vm.expectRevert(bytes("sender is not owner of position"));
+        v3utils.swapAndIncreaseLiquidity(params);
     }
 
     function testFailEmptySwapAndMint() external {
         V3Utils.SwapAndMintParams memory params = V3Utils.SwapAndMintParams(
+            NPM,
             DAI,
             USDC,
             500,
@@ -624,6 +659,7 @@ contract V3UtilsIntegrationTest is IntegrationTestBase {
         uint256 feeBalanceBefore = USDC.balanceOf(TEST_FEE_ACCOUNT);
 
         V3Utils.SwapAndMintParams memory params = V3Utils.SwapAndMintParams(
+            NPM,
             DAI,
             USDC,
             500,
@@ -669,6 +705,7 @@ contract V3UtilsIntegrationTest is IntegrationTestBase {
     function testSwapAndMintWithETH() public {
         uint256 feeBalanceBefore = WETH_ERC20.balanceOf(TEST_FEE_ACCOUNT);
         V3Utils.SwapAndMintParams memory params = V3Utils.SwapAndMintParams(
+            NPM,
             DAI,
             USDC,
             500,
@@ -712,6 +749,7 @@ contract V3UtilsIntegrationTest is IntegrationTestBase {
         uint256 feeBalanceBefore = WETH_ERC20.balanceOf(TEST_FEE_ACCOUNT);
 
         V3Utils.SwapParams memory params = V3Utils.SwapParams(
+            IWETH9(address(WETH_ERC20)),
             WETH_ERC20,
             USDC,
             500000000000000000, // 0.5ETH
@@ -740,6 +778,7 @@ contract V3UtilsIntegrationTest is IntegrationTestBase {
     function testSwapUSDCDAI() public {
         _writeTokenBalance(TEST_NFT_ACCOUNT, address(USDC), 1000000);
         V3Utils.SwapParams memory params = V3Utils.SwapParams(
+            IWETH9(address(WETH_ERC20)),
             USDC,
             DAI,
             1000000, // 1 USDC
@@ -772,6 +811,7 @@ contract V3UtilsIntegrationTest is IntegrationTestBase {
     function testSwapSlippageError() public {
         _writeTokenBalance(TEST_NFT_ACCOUNT, address(USDC), 1000000);
         V3Utils.SwapParams memory params = V3Utils.SwapParams(
+            IWETH9(address(WETH_ERC20)),
             USDC,
             DAI,
             1000000, // 1 USDC
@@ -793,6 +833,7 @@ contract V3UtilsIntegrationTest is IntegrationTestBase {
         _writeTokenBalance(TEST_NFT_ACCOUNT, address(USDC), 1000000);
 
         V3Utils.SwapParams memory params = V3Utils.SwapParams(
+            IWETH9(address(WETH_ERC20)),
             USDC,
             DAI,
             1000000, // 1 USDC
@@ -816,6 +857,7 @@ contract V3UtilsIntegrationTest is IntegrationTestBase {
         uint256 feeBalanceBefore = USDC.balanceOf(TEST_FEE_ACCOUNT);
 
         V3Utils.SwapParams memory params = V3Utils.SwapParams(
+            IWETH9(address(WETH_ERC20)),
             USDC,
             WETH_ERC20,
             1000000, // 1 USDC
@@ -858,6 +900,7 @@ contract V3UtilsIntegrationTest is IntegrationTestBase {
 
         V3Utils.SwapAndIncreaseLiquidityParams memory params = V3Utils
             .SwapAndIncreaseLiquidityParams(
+                NPM,
                 TEST_NFT,
                 1000000000000000000,
                 0,
@@ -897,33 +940,33 @@ contract V3UtilsIntegrationTest is IntegrationTestBase {
         assertEq(balanceUSDC, 0);
     }
 
-    function _get1USDCToDAISwapData() internal view returns (bytes memory) {
+    function _get1USDCToDAISwapData() internal pure returns (bytes memory) {
         // https://api-dev.krystal.team/arbitrum/v2/swap/buildTx?userAddress=0xB9778D7d29b856A53C6331C1855Daf7342F85931&dest=0xDA10009cBd5D07dd0CeCc66161FC93D7c9000da1&src=0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8&platformWallet=0x168E4c3AC8d89B00958B6bE6400B066f0347DDc9&srcAmount=1000000&minDestAmount=9949954458431&hint=0x5b7b226964223a22556e6973776170205633222c2273706c697456616c7565223a31303030307d5d&gasPrice=0&nonce=1&skipBalanceCheck=true
         // gasLimit=0x3d06d
         return hex"2db897d000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000d2fb643a7ba8497e7f1100b4b8b38bc52e60df800000000000000000000000000000000000000000000000000000000000f42400000000000000000000000000000000000000000000000000000090ca780433f000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000064000000000000000000000000168e4c3ac8d89b00958b6be6400b066f0347ddc900000000000000000000000000000000000000000000000000000000000001600000000000000000000000000000000000000000000000000000000000000002000000000000000000000000ff970a61a04b1ca14834a43f5de4533ebddb5cc8000000000000000000000000da10009cbd5d07dd0cecc66161fc93d7c9000da10000000000000000000000000000000000000000000000000000000000000017e592427a0aece92de3edee1f18e0157c058615640001f4000000000000000000";
     }
 
-    function _get1USDCToWETHSwapData() internal view returns (bytes memory) {
+    function _get1USDCToWETHSwapData() internal pure returns (bytes memory) {
         // https://api-dev.krystal.team/arbitrum/v2/swap/buildTx?userAddress=0xB9778D7d29b856A53C6331C1855Daf7342F85931&dest=0x82aF49447D8a07e3bd95BD0d56f35241523fBab1&src=0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8&platformWallet=0x168E4c3AC8d89B00958B6bE6400B066f0347DDc9&srcAmount=1000000&minDestAmount=385039270592026&hint=0x5b7b226964223a22556e6973776170205633222c2273706c697456616c7565223a31303030307d5d&gasPrice=0&nonce=1&skipBalanceCheck=true
         return hex"2db897d000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000d2fb643a7ba8497e7f1100b4b8b38bc52e60df800000000000000000000000000000000000000000000000000000000000f424000000000000000000000000000000000000000000000000000015e30f0f2be1a000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000064000000000000000000000000168e4c3ac8d89b00958b6be6400b066f0347ddc900000000000000000000000000000000000000000000000000000000000001600000000000000000000000000000000000000000000000000000000000000002000000000000000000000000ff970a61a04b1ca14834a43f5de4533ebddb5cc800000000000000000000000082af49447d8a07e3bd95bd0d56f35241523fbab10000000000000000000000000000000000000000000000000000000000000017e592427a0aece92de3edee1f18e0157c058615640001f4000000000000000000";
     }
 
-    function _get1DAIToUSDSwapData() internal view returns (bytes memory) {
+    function _get1DAIToUSDSwapData() internal pure returns (bytes memory) {
         // https://api-dev.krystal.team/arbitrum/v2/swap/buildTx?userAddress=0xB9778D7d29b856A53C6331C1855Daf7342F85931&dest=0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8&src=0xDA10009cBd5D07dd0CeCc66161FC93D7c9000da1&platformWallet=0x168E4c3AC8d89B00958B6bE6400B066f0347DDc9&srcAmount=990099009900989844&minDestAmount=900000&hint=0x5b7b226964223a22556e6973776170205633222c2273706c697456616c7565223a31303030307d5d&gasPrice=0&nonce=1&skipBalanceCheck=true
         return hex"2db897d000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000d2fb643a7ba8497e7f1100b4b8b38bc52e60df80000000000000000000000000000000000000000000000000dbd89cdc19d4d9400000000000000000000000000000000000000000000000000000000000dbba0000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000064000000000000000000000000168e4c3ac8d89b00958b6be6400b066f0347ddc900000000000000000000000000000000000000000000000000000000000001800000000000000000000000000000000000000000000000000000000000000003000000000000000000000000da10009cbd5d07dd0cecc66161fc93d7c9000da100000000000000000000000082af49447d8a07e3bd95bd0d56f35241523fbab1000000000000000000000000ff970a61a04b1ca14834a43f5de4533ebddb5cc8000000000000000000000000000000000000000000000000000000000000001ae592427a0aece92de3edee1f18e0157c058615640001f40001f4000000000000";
     }
 
-    function _get05DAIToUSDCSwapData() internal view returns (bytes memory) {
+    function _get05DAIToUSDCSwapData() internal pure returns (bytes memory) {
         // https://api-dev.krystal.team/arbitrum/v2/swap/buildTx?userAddress=0xB9778D7d29b856A53C6331C1855Daf7342F85931&dest=0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8&src=0xDA10009cBd5D07dd0CeCc66161FC93D7c9000da1&platformWallet=0x168E4c3AC8d89B00958B6bE6400B066f0347DDc9&srcAmount=500000000000000000&minDestAmount=400000&hint=0x5b7b226964223a22556e6973776170205633222c2273706c697456616c7565223a31303030307d5d&gasPrice=0&nonce=1&skipBalanceCheck=true
        return hex"2db897d000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000d2fb643a7ba8497e7f1100b4b8b38bc52e60df800000000000000000000000000000000000000000000000006f05b59d3b200000000000000000000000000000000000000000000000000000000000000061a80000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000064000000000000000000000000168e4c3ac8d89b00958b6be6400b066f0347ddc900000000000000000000000000000000000000000000000000000000000001800000000000000000000000000000000000000000000000000000000000000003000000000000000000000000da10009cbd5d07dd0cecc66161fc93d7c9000da100000000000000000000000082af49447d8a07e3bd95bd0d56f35241523fbab1000000000000000000000000ff970a61a04b1ca14834a43f5de4533ebddb5cc8000000000000000000000000000000000000000000000000000000000000001ae592427a0aece92de3edee1f18e0157c058615640001f40001f4000000000000";
     }
 
-    function _get05ETHToDAISwapData() internal view returns (bytes memory) {
+    function _get05ETHToDAISwapData() internal pure returns (bytes memory) {
         // https://api-dev.krystal.team/arbitrum/v2/swap/buildTx?userAddress=0xB9778D7d29b856A53C6331C1855Daf7342F85931&dest=0xDA10009cBd5D07dd0CeCc66161FC93D7c9000da1&src=0x82aF49447D8a07e3bd95BD0d56f35241523fBab1&platformWallet=0x168E4c3AC8d89B00958B6bE6400B066f0347DDc9&srcAmount=500000000000000000&minDestAmount=1200106259&hint=0x5b7b226964223a22556e6973776170205633222c2273706c697456616c7565223a31303030307d5d&gasPrice=0&nonce=1&skipBalanceCheck=true
         return hex"2db897d000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000d2fb643a7ba8497e7f1100b4b8b38bc52e60df800000000000000000000000000000000000000000000000006f05b59d3b200000000000000000000000000000000000000000000000000000000000047882b13000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000064000000000000000000000000168e4c3ac8d89b00958b6be6400b066f0347ddc90000000000000000000000000000000000000000000000000000000000000180000000000000000000000000000000000000000000000000000000000000000300000000000000000000000082af49447d8a07e3bd95bd0d56f35241523fbab1000000000000000000000000ff970a61a04b1ca14834a43f5de4533ebddb5cc8000000000000000000000000da10009cbd5d07dd0cecc66161fc93d7c9000da1000000000000000000000000000000000000000000000000000000000000001ae592427a0aece92de3edee1f18e0157c058615640001f40001f4000000000000";
     }
 
-    function _get05ETHToUSDCSwapData() internal view returns (bytes memory) {
+    function _get05ETHToUSDCSwapData() internal pure returns (bytes memory) {
         // https://api-dev.krystal.team/arbitrum/v2/swap/buildTx?userAddress=0xB9778D7d29b856A53C6331C1855Daf7342F85931&dest=0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8&src=0x82aF49447D8a07e3bd95BD0d56f35241523fBab1&platformWallet=0x168E4c3AC8d89B00958B6bE6400B066f0347DDc9&srcAmount=500000000000000000&minDestAmount=1200106259&hint=0x5b7b226964223a22556e6973776170205633222c2273706c697456616c7565223a31303030307d5d&gasPrice=0&nonce=1&skipBalanceCheck=true
         return hex"2db897d000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000d2fb643a7ba8497e7f1100b4b8b38bc52e60df800000000000000000000000000000000000000000000000006f05b59d3b200000000000000000000000000000000000000000000000000000000000047882b13000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000064000000000000000000000000168e4c3ac8d89b00958b6be6400b066f0347ddc90000000000000000000000000000000000000000000000000000000000000160000000000000000000000000000000000000000000000000000000000000000200000000000000000000000082af49447d8a07e3bd95bd0d56f35241523fbab1000000000000000000000000ff970a61a04b1ca14834a43f5de4533ebddb5cc80000000000000000000000000000000000000000000000000000000000000017e592427a0aece92de3edee1f18e0157c058615640001f4000000000000000000";
     }
