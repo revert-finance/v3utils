@@ -54,10 +54,10 @@ abstract contract IntegrationTestBase is Test {
         mainnetFork = vm.createFork("https://rpc.ankr.com/arbitrum", 171544977);
         vm.selectFork(mainnetFork);
 
-        v3utils = new V3Utils(NPM, KRYSTAL_ROUTER);
+        v3utils = new V3Utils(KRYSTAL_ROUTER);
     }  
 
-    function _getSwapRouterOptions() internal returns (address[] memory swapRouterOptions) {
+    function _getSwapRouterOptions() internal view returns (address[] memory swapRouterOptions) {
         swapRouterOptions = new address[](3);
         swapRouterOptions[0] = EX0x;
         swapRouterOptions[1] = UNIVERSAL_ROUTER;
