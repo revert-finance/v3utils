@@ -507,7 +507,56 @@ contract V3UtilsIntegrationTest is IntegrationTestBase {
         assertEq(amount1, 0); // one sided adding
     }
 
-    function testSwapAndIncreaseLiquiditBothSides() external {
+    function testSwapAndIncreaseLiquidityBothSides() external {
+
+        _writeTokenBalance(TEST_NFT_5_ACCOUNT, address(USDC), 3000000);
+        // add liquidity to another positions which is not owned
+
+        V3Utils.SwapAndIncreaseLiquidityParams memory params = V3Utils
+            .SwapAndIncreaseLiquidityParams(
+                NPM,
+                TEST_NFT_5,
+                0,
+                2000000,
+                TEST_NFT_5_ACCOUNT,
+                block.timestamp,
+                USDC,
+                1000000,
+                900000000000000000,
+                _get1USDCToDAISwapData(),
+                0,
+                0,
+                "",
+                0,
+                0
+            );
+
+        vm.prank(TEST_NFT_5_ACCOUNT);
+        USDC.approve(address(v3utils), 3000000);
+
+        uint256 usdcBefore = USDC.balanceOf(TEST_NFT_5_ACCOUNT);
+        uint256 daiBefore = DAI.balanceOf(TEST_NFT_5_ACCOUNT);
+
+        vm.prank(TEST_NFT_5_ACCOUNT);
+        (uint128 liquidity, uint256 amount0, uint256 amount1) = v3utils.swapAndIncreaseLiquidity(params);
+        uint256 usdcAfter = USDC.balanceOf(TEST_NFT_5_ACCOUNT);
+        uint256 daiAfter = DAI.balanceOf(TEST_NFT_5_ACCOUNT);
+
+        // close to 1% of swapped amount
+        uint256 feeBalance = USDC.balanceOf(TEST_FEE_ACCOUNT);
+        assertEq(feeBalance, 3346001);
+
+        assertEq(liquidity, 1610525505274001);
+        assertEq(amount0, 989333334060081225);
+        assertEq(amount1, 620657);
+
+        // all usdc spent
+        assertEq(usdcBefore - usdcAfter, 1000000+amount1);
+        //some dai returned - because not 100% correct swap ratio
+        assertEq(daiAfter - daiBefore, 47);
+    }
+
+    function testSwapAndIncreaseLiquidityInvalidOwner() external {
 
         _writeTokenBalance(TEST_NFT_ACCOUNT, address(USDC), 3000000);
         // add liquidity to another positions which is not owned
@@ -534,26 +583,9 @@ contract V3UtilsIntegrationTest is IntegrationTestBase {
         vm.prank(TEST_NFT_ACCOUNT);
         USDC.approve(address(v3utils), 3000000);
 
-        uint256 usdcBefore = USDC.balanceOf(TEST_NFT_ACCOUNT);
-        uint256 daiBefore = DAI.balanceOf(TEST_NFT_ACCOUNT);
-
         vm.prank(TEST_NFT_ACCOUNT);
-        (uint128 liquidity, uint256 amount0, uint256 amount1) = v3utils.swapAndIncreaseLiquidity(params);
-        uint256 usdcAfter = USDC.balanceOf(TEST_NFT_ACCOUNT);
-        uint256 daiAfter = DAI.balanceOf(TEST_NFT_ACCOUNT);
-
-        // close to 1% of swapped amount
-        uint256 feeBalance = USDC.balanceOf(TEST_FEE_ACCOUNT);
-        assertEq(feeBalance, 3346001);
-
-        assertEq(liquidity, 1610525505274001);
-        assertEq(amount0, 989333334060081225);
-        assertEq(amount1, 620657);
-
-        // all usdc spent
-        assertEq(usdcBefore - usdcAfter, 1000000+amount1);
-        //some dai returned - because not 100% correct swap ratio
-        assertEq(daiAfter - daiBefore, 47);
+        vm.expectRevert(bytes("sender is not owner of position"));
+        v3utils.swapAndIncreaseLiquidity(params);
     }
 
     function testFailEmptySwapAndMint() external {
