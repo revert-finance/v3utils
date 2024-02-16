@@ -35,17 +35,41 @@ needs to be changed to
 
 bytes32 internal constant POOL_INIT_CODE_HASH = 0xe34f199b19b2b4f47f68442619d555527d244f78a3297ea89325f843f87b8b54;
 
+# Remember to check smart wallet address
 # Deploy
 ```
 source .env
 ```
 
+Polygon
 ```
-forge script script/V3Utils.s.sol:MyScript --legacy --with-gas-price 100000000 --rpc-url $ARBITRUM_RPC_URL --broadcast --verify -vvvv
+forge script script/V3Utils.s.sol:MyScript --legacy --with-gas-price 70000000000 --rpc-url $POLYGON_RPC_URL --broadcast
+```
+
+Arbitrum
+```
+forge script script/V3Utils.s.sol:MyScript --legacy --with-gas-price 100000000 --rpc-url $ARBITRUM_RPC_URL --broadcast
+```
+
+Bsc
+```
+forge script script/V3Utils.s.sol:MyScript --rpc-url $BSC_RPC_URL --broadcast
 ```
 
 # Verify Contract
+
+Polygon
 ```
-forge verify-contract --chain-id 42161 --etherscan-api-key $ARBISCAN_API_KEY --verifier-url https://api.arbiscan.io/api/ 0x9782d88f904f06ffce8f08657aa7bfe0d26bd483 src/V3Utils.sol:V3Utils --constructor-args $(cast abi-encode "constructor(address,address)" "0xC36442b4a4522E871399CD717aBDD847Ab11FE88" "0x864F01c5E46b0712643B956BcA607bF883e0dbC5")
+forge verify-contract --chain-id 137 --etherscan-api-key $POLYGONSCAN_API_KEY --verifier-url https://api.polygonscan.com/api/ 0x81a187066771dd2804be32898de39f480f17fa50 src/V3Utils.sol:V3Utils --constructor-args $(cast abi-encode "constructor(address)" "0x70270C228c5B4279d1578799926873aa72446CcD")
+```
+
+Arbitrum
+```
+forge verify-contract --chain-id 42161 --etherscan-api-key $ARBISCAN_API_KEY --verifier-url https://api.arbiscan.io/api/ 0xD475bF392Cc10cB17990e15500B808b7b7e7471C src/V3Utils.sol:V3Utils --constructor-args $(cast abi-encode "constructor(address)" "0x864F01c5E46b0712643B956BcA607bF883e0dbC5")
+```
+
+Bsc
+```
+forge verify-contract --chain-id 56 --etherscan-api-key $BSCSCAN_API_KEY --verifier-url https://api.bscscan.com/api/ 0x6fDA568d85e3D59388251D15722601512a058910 src/V3Utils.sol:V3Utils --constructor-args $(cast abi-encode "constructor(address)" "0x051DC16b2ECB366984d1074dCC07c342a9463999")
 ```
 
