@@ -70,6 +70,6 @@ forge verify-contract --chain-id 42161 --etherscan-api-key $ARBISCAN_API_KEY --v
 
 Bsc
 ```
-forge verify-contract --chain-id 56 --etherscan-api-key $BSCSCAN_API_KEY --verifier-url https://api.bscscan.com/api/ 0x0582fF65007507bBa9707304783f4655B49abfE4 src/V3Utils.sol:V3Utils --constructor-args $(cast abi-encode "constructor(address)" "0x051DC16b2ECB366984d1074dCC07c342a9463999")
+forge verify-contract --chain-id 56 --etherscan-api-key $BSCSCAN_API_KEY --verifier-url https://api.bscscan.com/api/ 0x751271ceb69C48bb7dB9BE16171f3EbD86c12ae2 src/V3Utils.sol:V3Utils --constructor-args $(cast abi-encode "constructor(address)" "0x051DC16b2ECB366984d1074dCC07c342a9463999")
 ```
 
