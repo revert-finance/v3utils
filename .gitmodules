@@ -14,3 +14,6 @@
 	path = lib/forge-std
 	url = https://github.com/foundry-rs/forge-std
 	branch = v1.4.0
+[submodule "lib/AlgebraV1"]
+	path = lib/AlgebraV1
+	url = https://github.com/cryptoalgebra/AlgebraV1
