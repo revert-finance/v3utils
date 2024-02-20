@@ -199,7 +199,7 @@ contract V3Utils is IERC721Receiver {
 
         Instructions memory instructions = abi.decode(data, (Instructions));
 
-        (,,address token0,address token1,,,,uint128 liquidity,,,,) = nfpm.positions(tokenId);
+        (address token0,address token1,uint128 liquidity) = _getPosition(nfpm, instructions.protocol, tokenId);
 
         uint256 amount0;
         uint256 amount1;
@@ -403,7 +403,7 @@ contract V3Utils is IERC721Receiver {
     function swapAndIncreaseLiquidity(SwapAndIncreaseLiquidityParams calldata params) external payable returns (uint128 liquidity, uint256 amount0, uint256 amount1) {
         address owner = params.nfpm.ownerOf(params.tokenId);
         require(owner == msg.sender, "sender is not owner of position");
-        (, , address token0, address token1, , , , , , , , ) = params.nfpm.positions(params.tokenId);
+        (address token0,address token1,) = _getPosition(params.nfpm, params.protocol, params.tokenId);
         IWETH9 weth = _getWeth9(params.nfpm, params.protocol);
         _prepareAdd(weth, IERC20(token0), IERC20(token1), params.swapSourceToken, params.amount0, params.amount1, params.amountIn0 + params.amountIn1);
         (liquidity, amount0, amount1) = _swapAndIncrease(params, IERC20(token0), IERC20(token1), msg.value != 0);
@@ -713,6 +713,18 @@ contract V3Utils is IERC721Receiver {
             weth = IWETH9(nfpm.WNativeToken());
         } else {
             revert("invalid protocol");
+        }
+    }
+
+    function _getPosition(INonfungiblePositionManager nfpm, Protocol protocol, uint256 tokenId) internal returns (address token0, address token1, uint128 liquidity) {
+        (bool success, bytes memory data) = address(nfpm).call(abi.encodeWithSignature("positions(uint256)", tokenId));
+        if (!success) {
+            revert("v3utils: call get position failed");
+        }
+        if (protocol == Protocol.UNI_V3) {
+            (,, token0, token1,,,, liquidity,,,,) = abi.decode(data, (uint96,address,address,address,uint24,int24,int24,uint128,uint256,uint256,uint128,uint128));
+        } else if (protocol == Protocol.ALGEBRA_V1) {
+            (,, token0, token1,,, liquidity,,,,) = abi.decode(data, (uint96,address,address,address,int24,int24,uint128,uint256,uint256,uint128,uint128));
         }
     }
 
