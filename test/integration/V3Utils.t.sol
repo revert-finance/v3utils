@@ -18,6 +18,7 @@ contract V3UtilsIntegrationTest is IntegrationTestBase {
         );
         V3Utils.Instructions memory inst = V3Utils.Instructions(
             V3Utils.WhatToDo.CHANGE_RANGE,
+            V3Utils.Protocol.UNI_V3,
             address(0),
             0,
             0,
@@ -83,6 +84,7 @@ contract V3UtilsIntegrationTest is IntegrationTestBase {
         // swap a bit more dai than available - fails with slippage error because not enough liquidity + fees is collected
         V3Utils.Instructions memory inst = V3Utils.Instructions(
             V3Utils.WhatToDo.CHANGE_RANGE,
+            V3Utils.Protocol.UNI_V3,
             address(USDC),
             1000000000000000001,
             400000,
@@ -129,6 +131,7 @@ contract V3UtilsIntegrationTest is IntegrationTestBase {
         // swap a bit more dai than available - fails with slippage error because not enough liquidity + fees is collected
         V3Utils.Instructions memory inst = V3Utils.Instructions(
             V3Utils.WhatToDo.CHANGE_RANGE,
+            V3Utils.Protocol.UNI_V3,
             address(USDC),
             0,
             0,
@@ -178,6 +181,7 @@ contract V3UtilsIntegrationTest is IntegrationTestBase {
         // swap half of DAI to USDC and add full range
         V3Utils.Instructions memory inst = V3Utils.Instructions(
             V3Utils.WhatToDo.CHANGE_RANGE,
+            V3Utils.Protocol.UNI_V3,
             address(USDC),
             0,
             0,
@@ -223,6 +227,7 @@ contract V3UtilsIntegrationTest is IntegrationTestBase {
     function testTransferWithCompoundNoSwap() external {
         V3Utils.Instructions memory inst = V3Utils.Instructions(
             V3Utils.WhatToDo.COMPOUND_FEES,
+            V3Utils.Protocol.UNI_V3,
             address(0),
             0,
             0,
@@ -283,6 +288,7 @@ contract V3UtilsIntegrationTest is IntegrationTestBase {
 
         V3Utils.Instructions memory inst = V3Utils.Instructions(
             V3Utils.WhatToDo.COMPOUND_FEES,
+            V3Utils.Protocol.UNI_V3,
             address(USDC),
             0,
             0,
@@ -346,6 +352,7 @@ contract V3UtilsIntegrationTest is IntegrationTestBase {
         // swap half of DAI to USDC and add full range
         V3Utils.Instructions memory inst = V3Utils.Instructions(
             V3Utils.WhatToDo.WITHDRAW_AND_COLLECT_AND_SWAP,
+            V3Utils.Protocol.UNI_V3,
             address(USDC),
             0,
             0,
@@ -391,7 +398,7 @@ contract V3UtilsIntegrationTest is IntegrationTestBase {
         // decrease liquidity without collect (simulate fee growth)
         vm.prank(TEST_NFT_ACCOUNT);
         (uint256 amount0, uint256 amount1) = NPM.decreaseLiquidity(
-            INonfungiblePositionManager.DecreaseLiquidityParams(
+            univ3.INonfungiblePositionManager.DecreaseLiquidityParams(
                 TEST_NFT,
                 liquidity,
                 0,
@@ -409,6 +416,7 @@ contract V3UtilsIntegrationTest is IntegrationTestBase {
         // swap half of DAI to USDC and add full range
         V3Utils.Instructions memory inst = V3Utils.Instructions(
             V3Utils.WhatToDo.WITHDRAW_AND_COLLECT_AND_SWAP,
+            V3Utils.Protocol.UNI_V3,
             address(USDC),
             0,
             0,
@@ -450,6 +458,7 @@ contract V3UtilsIntegrationTest is IntegrationTestBase {
     function testFailEmptySwapAndIncreaseLiquidity() external {
         V3Utils.SwapAndIncreaseLiquidityParams memory params = V3Utils
             .SwapAndIncreaseLiquidityParams(
+                V3Utils.Protocol.UNI_V3,
                 NPM,
                 TEST_NFT,
                 0,
@@ -475,6 +484,7 @@ contract V3UtilsIntegrationTest is IntegrationTestBase {
         _writeTokenBalance(TEST_NFT_ACCOUNT, address(USDC), 1000000);
         V3Utils.SwapAndIncreaseLiquidityParams memory params = V3Utils
             .SwapAndIncreaseLiquidityParams(
+                V3Utils.Protocol.UNI_V3,
                 NPM,
                 TEST_NFT,
                 0,
@@ -514,6 +524,7 @@ contract V3UtilsIntegrationTest is IntegrationTestBase {
 
         V3Utils.SwapAndIncreaseLiquidityParams memory params = V3Utils
             .SwapAndIncreaseLiquidityParams(
+                V3Utils.Protocol.UNI_V3,
                 NPM,
                 TEST_NFT_5,
                 0,
@@ -563,6 +574,7 @@ contract V3UtilsIntegrationTest is IntegrationTestBase {
 
         V3Utils.SwapAndIncreaseLiquidityParams memory params = V3Utils
             .SwapAndIncreaseLiquidityParams(
+                V3Utils.Protocol.UNI_V3,
                 NPM,
                 TEST_NFT_5,
                 0,
@@ -590,6 +602,7 @@ contract V3UtilsIntegrationTest is IntegrationTestBase {
 
     function testFailEmptySwapAndMint() external {
         V3Utils.SwapAndMintParams memory params = V3Utils.SwapAndMintParams(
+            V3Utils.Protocol.UNI_V3,
             NPM,
             DAI,
             USDC,
@@ -659,6 +672,7 @@ contract V3UtilsIntegrationTest is IntegrationTestBase {
         uint256 feeBalanceBefore = USDC.balanceOf(TEST_FEE_ACCOUNT);
 
         V3Utils.SwapAndMintParams memory params = V3Utils.SwapAndMintParams(
+            V3Utils.Protocol.UNI_V3,
             NPM,
             DAI,
             USDC,
@@ -705,6 +719,7 @@ contract V3UtilsIntegrationTest is IntegrationTestBase {
     function testSwapAndMintWithETH() public {
         uint256 feeBalanceBefore = WETH_ERC20.balanceOf(TEST_FEE_ACCOUNT);
         V3Utils.SwapAndMintParams memory params = V3Utils.SwapAndMintParams(
+            V3Utils.Protocol.UNI_V3,
             NPM,
             DAI,
             USDC,
@@ -900,6 +915,7 @@ contract V3UtilsIntegrationTest is IntegrationTestBase {
 
         V3Utils.SwapAndIncreaseLiquidityParams memory params = V3Utils
             .SwapAndIncreaseLiquidityParams(
+                V3Utils.Protocol.UNI_V3,
                 NPM,
                 TEST_NFT,
                 1000000000000000000,

@@ -3,3 +3,7 @@
 @uniswap/v3-periphery/=lib/v3-periphery
 v3-core/=lib/v3-core/contracts
 v3-periphery/=lib/v3-periphery/contracts
+
+@cryptoalgebra/AlgebraV1/=lib/AlgebraV1
+algebra-core/=lib/AlgebraV1/src/core
+algebra-periphery/=lib/AlgebraV1/src/periphery
