@@ -9,7 +9,7 @@ contract MyScript is Script {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
         vm.startBroadcast(deployerPrivateKey);
 
-        address KRYSTAL_ROUTER = 0x051DC16b2ECB366984d1074dCC07c342a9463999;
+        address KRYSTAL_ROUTER = 0xf6f2dafa542FefAae22187632Ef30D2dAa252b4e;
         V3Utils v3Utils = new V3Utils(KRYSTAL_ROUTER);
 
         vm.stopBroadcast();

@@ -56,6 +56,11 @@ Bsc
 forge script script/V3Utils.s.sol:MyScript --rpc-url $BSC_RPC_URL --broadcast
 ```
 
+Optimism
+```
+forge script script/V3Utils.s.sol:MyScript --legacy --with-gas-price 100000000 --rpc-url $OPTIMISM_RPC_URL --broadcast
+```
+
 # Verify Contract
 
 Polygon
@@ -71,5 +76,10 @@ forge verify-contract --chain-id 42161 --etherscan-api-key $ARBISCAN_API_KEY --v
 Bsc
 ```
 forge verify-contract --chain-id 56 --etherscan-api-key $BSCSCAN_API_KEY --verifier-url https://api.bscscan.com/api/ 0x751271ceb69C48bb7dB9BE16171f3EbD86c12ae2 src/V3Utils.sol:V3Utils --constructor-args $(cast abi-encode "constructor(address)" "0x051DC16b2ECB366984d1074dCC07c342a9463999")
+```
+
+Optimism
+```
+forge verify-contract --chain-id 10 --etherscan-api-key $OPTIMISMSCAN_API_KEY --verifier-url https://api-optimistic.etherscan.io/api/ 0xD475bF392Cc10cB17990e15500B808b7b7e7471C src/V3Utils.sol:V3Utils --constructor-args $(cast abi-encode "constructor(address)" "0xf6f2dafa542FefAae22187632Ef30D2dAa252b4e")
 ```
 
