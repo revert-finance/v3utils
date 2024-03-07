@@ -9,6 +9,7 @@ solc-version = "0.8.23"
 
 [rpc_endpoints]
 goerli = "${GOERLI_RPC_URL}"
+ethereum = "${ETHEREUM_RPC_URL}"
 polygon = "${POLYGON_RPC_URL}"
 arbitrum = "${ARBITRUM_RPC_URL}"
 bsc = "${BSC_RPC_URL}"
@@ -16,6 +17,7 @@ optimism = "${OPTIMISM_RPC_URL}"
 
 [etherscan]
 goerli = { key = "${ETHERSCAN_API_KEY}" }
+ethereum = { key = "${ETHERSCAN_API_KEY}" }
 polygon = { key = "${POLYGONSCAN_API_KEY}" }
 arbitrum = { key = "${ARBISCAN_API_KEY}" }
 bsc = { key = "${BSCSCAN_API_KEY}" }

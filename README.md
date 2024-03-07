@@ -40,6 +40,10 @@ bytes32 internal constant POOL_INIT_CODE_HASH = 0xe34f199b19b2b4f47f68442619d555
 ```
 source .env
 ```
+Ethereum
+```
+forge script script/V3Utils.s.sol:MyScript --legacy --with-gas-price 52000000000 --rpc-url $ETHEREUM_RPC_URL --broadcast
+```
 
 Polygon
 ```
@@ -62,6 +66,11 @@ forge script script/V3Utils.s.sol:MyScript --legacy --with-gas-price 100000000 -
 ```
 
 # Verify Contract
+
+Ethereum
+```
+forge verify-contract 0xfaacd9f7e68bb36c1029ab87d1d7325919e67cc0 src/V3Utils.sol:V3Utils --constructor-args $(cast abi-encode "constructor(address)" "0x70270C228c5B4279d1578799926873aa72446CcD")
+```
 
 Polygon
 ```
