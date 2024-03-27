@@ -22,15 +22,6 @@ contract LpAutomation is AccessControl, Common {
         _grantRole(WITHDRAWER_ROLE, tx.origin);
     }
 
-    struct PermitParams {
-        address spender;
-        uint256 tokenId;
-        uint256 deadline;
-        uint8 v;
-        bytes32 r;
-        bytes32 s;
-    }
-
     struct ExecuteState {
         address token0;
         address token1;
@@ -47,7 +38,6 @@ contract LpAutomation is AccessControl, Common {
     struct AdjustRangeParams {
         INonfungiblePositionManager nfpm;
         Protocol protocol;
-        PermitParams permit;
 
         address userAddress;
         uint256 tokenId;
@@ -68,10 +58,15 @@ contract LpAutomation is AccessControl, Common {
         // min amount to be added after swap
         uint256 amountAddMin0;
         uint256 amountAddMin1;
+
+        // signature fo permit for tokenId, and deadline
+        uint8 v;
+        bytes32 r;
+        bytes32 s;
     }
 
     function adjustRange(AdjustRangeParams calldata params) public payable onlyRole(OPERATOR_ROLE) {
-        params.nfpm.permit(params.permit.spender, params.permit.tokenId, params.permit.deadline, params.permit.v, params.permit.r, params.permit.s);
+        params.nfpm.permit(address(this), params.tokenId, params.deadline, params.v, params.r, params.s);
         params.nfpm.transferFrom(params.userAddress, address(this), params.tokenId);
 
         ExecuteState memory state;
