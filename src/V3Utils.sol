@@ -51,10 +51,6 @@ contract V3Utils is IERC721Receiver, Common {
         uint256 amountOut1Min;
         bytes swapData1; // encoded data from 0x api call (address,bytes) - allowanceTarget,data
 
-        // collect fee amount for COMPOUND_FEES / CHANGE_RANGE / WITHDRAW_AND_COLLECT_AND_SWAP (if uint256(128).max - ALL)
-        uint128 feeAmount0;
-        uint128 feeAmount1;
-
         // for creating new positions with CHANGE_RANGE
         uint24 fee;
         int24 tickLower;
@@ -115,12 +111,7 @@ contract V3Utils is IERC721Receiver, Common {
 
         (address token0,address token1,uint128 liquidity,,,) = _getPosition(nfpm, instructions.protocol, tokenId);
 
-        uint256 amount0;
-        uint256 amount1;
-        if (instructions.liquidity != 0) {
-            (amount0, amount1) = _decreaseLiquidity(nfpm, tokenId, instructions.liquidity, instructions.deadline, instructions.amountRemoveMin0, instructions.amountRemoveMin1);
-        }
-        (amount0, amount1) = _collectFees(nfpm, tokenId, IERC20(token0), IERC20(token1), instructions.feeAmount0 == type(uint128).max ? type(uint128).max : (amount0 + instructions.feeAmount0).toUint128(), instructions.feeAmount1 == type(uint128).max ? type(uint128).max : (amount1 + instructions.feeAmount1).toUint128());
+        (uint256 amount0, uint256 amount1,,) = _decreaseFullLiquidityAndCollectAndTakeFees(nfpm, tokenId, instructions.liquidity, instructions.deadline, instructions.amountRemoveMin0, instructions.amountRemoveMin1, 0);
         
         // check if enough tokens are available for swaps
         if (amount0 < instructions.amountIn0 || amount1 < instructions.amountIn1) {

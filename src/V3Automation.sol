@@ -2,7 +2,6 @@
 pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/access/AccessControl.sol";
-import "v3-core/libraries/FullMath.sol";
 
 import "./Common.sol";
 
@@ -22,6 +21,11 @@ contract LpAutomation is AccessControl, Common {
         _grantRole(WITHDRAWER_ROLE, tx.origin);
     }
 
+    enum Action {
+        AUTO_ADJUST,
+        AUTO_EXIT
+    }
+
     struct ExecuteState {
         address token0;
         address token1;
@@ -35,23 +39,36 @@ contract LpAutomation is AccessControl, Common {
         uint128 liquidity;
     }
 
-    struct AdjustRangeParams {
+    struct ExecuteParams {
+        Action action;
         INonfungiblePositionManager nfpm;
         Protocol protocol;
 
         address userAddress;
         uint256 tokenId;
-        bool swap0To1;
-        uint256 amountIn; // if this is set to 0 no swap happens
-        uint256 amountOutMin;
-        bytes swapData;
         uint128 liquidity; // liquidity the calculations are based on
+
+        // target token for swaps (if this is address(0) no swaps are executed)
+        address targetToken;
+    
+        uint256 amountIn0;
+        // if token0 needs to be swapped to targetToken - set values
+        uint256 amountOut0Min;
+        bytes swapData0; // encoded data from 0x api call (address,bytes) - allowanceTarget,data
+
+        // amountIn1 is used for swap and also as minAmount1 for decreased liquidity + collected fees
+        uint256 amountIn1;
+        // if token1 needs to be swapped to targetToken - set values
+        uint256 amountOut1Min;
+        bytes swapData1; // encoded data from 0x api call (address,bytes) - allowanceTarget,data
+
         uint256 amountRemoveMin0; // min amount to be removed from liquidity
         uint256 amountRemoveMin1; // min amount to be removed from liquidity
         uint256 deadline; // for uniswap operations - operator promises fair value
         uint64 gasFeeX64;  // amount of tokens to be used as gas fee
         uint64 protocolFeeX64;  // amount of tokens to be used as protocol fee
 
+        // for mint new range
         int24 newTickLower;
         int24 newTickUpper;
 
@@ -60,7 +77,7 @@ contract LpAutomation is AccessControl, Common {
         uint256 amountAddMin1;
     }
 
-    function adjustRange(AdjustRangeParams calldata params) public payable onlyRole(OPERATOR_ROLE) {
+    function execute(ExecuteParams calldata params) public payable onlyRole(OPERATOR_ROLE) {
         params.nfpm.transferFrom(params.userAddress, address(this), params.tokenId);
 
         ExecuteState memory state;
@@ -70,49 +87,67 @@ contract LpAutomation is AccessControl, Common {
             revert LiquidityChanged();
         }
 
-        (state.amount0, state.amount1,,) = _decreaseFullLiquidityAndCollect(params.nfpm, params.tokenId, params.liquidity, params.deadline, params.amountRemoveMin0, params.amountRemoveMin1);
-        {
-            uint256 fees0 = FullMath.mulDiv(state.amount0, params.gasFeeX64 + params.protocolFeeX64, Q64);
-            uint256 fees1 = FullMath.mulDiv(state.amount1, params.gasFeeX64 + params.protocolFeeX64, Q64);
-            state.amount0 -= fees0;
-            state.amount1 -= fees1;
+        (state.amount0, state.amount1,,) = _decreaseFullLiquidityAndCollectAndTakeFees(params.nfpm, params.tokenId, params.liquidity, params.deadline, params.amountRemoveMin0, params.amountRemoveMin1, params.gasFeeX64 + params.protocolFeeX64);
+
+        if (params.action == Action.AUTO_ADJUST) {
+            if (state.tickLower == params.newTickLower && state.tickUpper == params.newTickUpper) {
+                revert SameRange();
+            }
+
+            // todo: takes returns to emit necessary events
+            _swapAndMint(SwapAndMintParams(
+                params.protocol, 
+                params.nfpm, 
+                IERC20(state.token0), IERC20(state.token1), 
+                state.fee, 
+                state.tickLower, state.tickUpper, 
+                state.amount0,
+                state.amount1, 
+                params.userAddress, 
+                params.deadline, 
+                params.targetToken == state.token0 ? IERC20(state.token1) : IERC20(state.token0),
+                
+                params.amountIn0,
+                params.amountOut0Min,
+                params.swapData0,
+
+                params.amountIn1,
+                params.amountOut1Min,
+                params.swapData1,
+
+                params.amountAddMin0, 
+                params.amountAddMin1, 
+                ""
+            ), false);
+        } else if (params.action == Action.AUTO_EXIT) {
+            IWETH9 weth = _getWeth9(params.nfpm, params.protocol);
+            uint256 targetAmount;
+            if (state.token0 != params.targetToken) {
+                (uint256 amountInDelta, uint256 amountOutDelta) = _swap(IERC20(state.token0), IERC20(params.targetToken), state.amount0, params.amountOut0Min, params.swapData0);
+                if (amountInDelta < state.amount0) {
+                    _transferToken(weth, params.userAddress, IERC20(state.token0), state.amount0 - amountInDelta, false);
+                }
+                targetAmount += amountOutDelta;
+            } else {
+                targetAmount += state.amount0; 
+            }
+            if (state.token1 != params.targetToken) {
+                (uint256 amountInDelta, uint256 amountOutDelta) = _swap(IERC20(state.token1), IERC20(params.targetToken), state.amount1, params.amountOut1Min, params.swapData1);
+                if (amountInDelta < state.amount1) {
+                    _transferToken(weth, params.userAddress, IERC20(state.token1), state.amount1 - amountInDelta, false);
+                }
+                targetAmount += amountOutDelta;
+            } else {
+                targetAmount += state.amount1; 
+            }
+
+            // send complete target amount
+            if (targetAmount != 0 && params.targetToken != address(0)) {
+                _transferToken(weth, params.userAddress, IERC20(params.targetToken), targetAmount, false);
+            }
+        } else {
+            revert NotSupportedWhatToDo();
         }
-        if (params.swap0To1 && params.amountIn > state.amount0 || !params.swap0To1 && params.amountIn > state.amount1) {
-            revert SwapAmountTooLarge();
-        }
-
-        if (state.tickLower == params.newTickLower && state.tickUpper == params.newTickUpper) {
-            revert SameRange();
-        }
-
-        (uint256 amountInDelta, uint256 amountOutDelta) = _swap(params.swap0To1 ? IERC20(state.token0) : IERC20(state.token1), params.swap0To1 ? IERC20(state.token1) : IERC20(state.token0), params.amountIn, params.amountOutMin, params.swapData);
-        
-        state.amount0 = params.swap0To1 ? state.amount0 - amountInDelta : state.amount0 + amountOutDelta;
-        state.amount1 = params.swap0To1 ? state.amount1 + amountOutDelta : state.amount1 - amountInDelta;
-
-        _swapAndMint(SwapAndMintParams(
-            params.protocol, 
-            params.nfpm, 
-            IERC20(state.token0), IERC20(state.token1), 
-            state.fee, 
-            state.tickLower, state.tickUpper, 
-            state.amount0,
-            state.amount1, 
-            params.userAddress, 
-            params.deadline, 
-            params.swap0To1 ? IERC20(state.token0) : IERC20(state.token1), 
-            
-            params.swap0To1 ? params.amountIn : 0, 
-            params.swap0To1 ? params.amountOutMin : 0, 
-            params.swap0To1 ? params.swapData : bytes(""),
-
-            params.swap0To1 ? 0 : params.amountIn, 
-            params.swap0To1 ? 0 : params.amountOutMin, 
-            params.swap0To1 ? bytes("") : params.swapData,
-            params.amountAddMin0, 
-            params.amountAddMin1, 
-            ""
-        ), false);
     }
 
     /**

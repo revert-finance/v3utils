@@ -4,6 +4,7 @@ pragma solidity ^0.8.0;
 import "v3-periphery/interfaces/external/IWETH9.sol";
 import "v3-periphery/interfaces/INonfungiblePositionManager.sol" as univ3;
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "v3-core/libraries/FullMath.sol";
 
 interface INonfungiblePositionManager is univ3.INonfungiblePositionManager {
     /// @notice mintParams for algebra v1
@@ -467,15 +468,19 @@ abstract contract Common {
         }
     }
 
-    function _decreaseFullLiquidityAndCollect(
+    function _decreaseFullLiquidityAndCollectAndTakeFees(
         INonfungiblePositionManager nfpm, 
         uint256 tokenId, 
         uint128 liquidity, 
         uint256 deadline, 
         uint256 token0Min, 
-        uint256 token1Min
-    ) internal returns (uint256 amount0, uint256 amount1, uint256 feeAmount0, uint256 feeAmount1) {
-        (feeAmount0, feeAmount1) = _decreaseLiquidity(nfpm, tokenId, liquidity, deadline, token0Min, token1Min);
+        uint256 token1Min,
+        
+        uint64 feesX64
+    ) internal returns (uint256 amount0, uint256 amount1, uint256 fees0, uint256 fees1) {
+        if (liquidity > 0) {
+            _decreaseLiquidity(nfpm, tokenId, liquidity, deadline, token0Min, token1Min);
+        }
         (amount0, amount1) = nfpm.collect(
             univ3.INonfungiblePositionManager.CollectParams(
                 tokenId,
@@ -484,10 +489,12 @@ abstract contract Common {
                 type(uint128).max
             )
         );
-
-        // fee amount is what was collected additionally to liquidity amount
-        feeAmount0 = amount0 - feeAmount0;
-        feeAmount1 = amount1 - feeAmount1;
+        if (feesX64 > 0) {
+            fees0 = FullMath.mulDiv(amount0, feesX64, Q64);
+            fees1 = FullMath.mulDiv(amount1, feesX64, Q64);
+            amount0 -= fees0;
+            amount1 -= fees1;
+        }
     }
 
     function _getWeth9(INonfungiblePositionManager nfpm, Protocol protocol) view internal returns (IWETH9 weth) {

@@ -2,7 +2,6 @@
 pragma solidity ^0.8.0;
 
 import "../IntegrationTestBase.sol";
-import "forge-std/console.sol";
 
 contract V3UtilsIntegrationTest is IntegrationTestBase {
    
@@ -28,8 +27,6 @@ contract V3UtilsIntegrationTest is IntegrationTestBase {
             0,
             0,
             "",
-            0,
-            0,
             0,
             0,
             0,
@@ -94,8 +91,6 @@ contract V3UtilsIntegrationTest is IntegrationTestBase {
             0,
             0,
             "",
-            type(uint128).max, // take all fees
-            type(uint128).max, // take all fees
             100, // change fee as well
             MIN_TICK_100,
             -MIN_TICK_100,
@@ -141,8 +136,6 @@ contract V3UtilsIntegrationTest is IntegrationTestBase {
             0,
             0,
             "",
-            type(uint128).max, // take all fees
-            type(uint128).max, // take all fees
             100, // change fee as well
             MIN_TICK_100,
             -MIN_TICK_100,
@@ -191,8 +184,6 @@ contract V3UtilsIntegrationTest is IntegrationTestBase {
             0,
             0,
             "",
-            type(uint128).max, // take all fees
-            type(uint128).max, // take all fees
             100, // change fee as well
             MIN_TICK_100,
             -MIN_TICK_100,
@@ -237,8 +228,6 @@ contract V3UtilsIntegrationTest is IntegrationTestBase {
             0,
             0,
             "",
-            type(uint128).max,
-            type(uint128).max,
             0,
             0,
             0,
@@ -298,8 +287,6 @@ contract V3UtilsIntegrationTest is IntegrationTestBase {
             0,
             0,
             "",
-            type(uint128).max,
-            type(uint128).max,
             0,
             0,
             0,
@@ -365,8 +352,6 @@ contract V3UtilsIntegrationTest is IntegrationTestBase {
             0,
             0,
             0,
-            0,
-            0,
             liquidity,
             0,
             0,
@@ -426,8 +411,6 @@ contract V3UtilsIntegrationTest is IntegrationTestBase {
             0,
             0,
             "",
-            uint128(amount0),
-            uint128(amount1),
             0,
             0,
             0,
