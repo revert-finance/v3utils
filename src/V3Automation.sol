@@ -75,9 +75,21 @@ contract LpAutomation is AccessControl, Common {
         // min amount to be added after swap
         uint256 amountAddMin0;
         uint256 amountAddMin1;
+
+        // signature fo permit for tokenId, and deadline
+        // these params use for auto exit.
+        uint8 v;
+        bytes32 r;
+        bytes32 s;
     }
 
     function execute(ExecuteParams calldata params) public payable onlyRole(OPERATOR_ROLE) {
+        if (params.action == Action.AUTO_EXIT &&
+            !params.nfpm.isApprovedForAll(params.userAddress, address(this))
+            && params.nfpm.getApproved(params.tokenId) != address(this)
+        ) {
+            params.nfpm.permit(address(this), params.tokenId, params.deadline, params.v, params.r, params.s);
+        }
         params.nfpm.transferFrom(params.userAddress, address(this), params.tokenId);
 
         ExecuteState memory state;
