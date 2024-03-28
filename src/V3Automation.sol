@@ -106,9 +106,14 @@ contract LpAutomation is AccessControl, Common {
             state.amount1, 
             params.userAddress, 
             params.deadline, 
-            params.swap0To1? IERC20(state.token0) : IERC20(state.token1), 
-            params.amountIn, params.amountOutMin, params.swapData,
-            0, 0, "", params.amountAddMin0, params.amountAddMin1, ""
+            params.swap0To1 ? IERC20(state.token0) : IERC20(state.token1), 
+            params.swap0To1 ? params.amountIn : 0, 
+            params.swap0To1 ? params.amountOutMin : 0, 
+            params.swap0To1 ? params.swapData : "",
+            params.swap0To1 ? 0 : params.amountIn, 
+            params.swap0To1 ? 0 : params.amountOutMin, 
+            params.swap0To1 ? "" : params.swapData,
+            params.amountAddMin0, params.amountAddMin1, ""
         ), false);
     }
 
