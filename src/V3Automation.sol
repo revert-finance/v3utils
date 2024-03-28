@@ -58,15 +58,9 @@ contract LpAutomation is AccessControl, Common {
         // min amount to be added after swap
         uint256 amountAddMin0;
         uint256 amountAddMin1;
-
-        // signature fo permit for tokenId, and deadline
-        uint8 v;
-        bytes32 r;
-        bytes32 s;
     }
 
     function adjustRange(AdjustRangeParams calldata params) public payable onlyRole(OPERATOR_ROLE) {
-        params.nfpm.permit(address(this), params.tokenId, params.deadline, params.v, params.r, params.s);
         params.nfpm.transferFrom(params.userAddress, address(this), params.tokenId);
 
         ExecuteState memory state;
