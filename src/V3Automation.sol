@@ -26,18 +26,18 @@ contract LpAutomation is AccessControl, Common {
         AUTO_EXIT
     }
 
-    // struct ExecuteState {
-    //     address token0;
-    //     address token1;
-    //     uint24 fee;
-    //     int24 tickLower;
-    //     int24 tickUpper;
+    struct ExecuteState {
+        address token0;
+        address token1;
+        uint24 fee;
+        int24 tickLower;
+        int24 tickUpper;
 
-    //     uint256 amount0;
-    //     uint256 amount1;
+        uint256 amount0;
+        uint256 amount1;
 
-    //     uint128 liquidity;
-    // }
+        uint128 liquidity;
+    }
 
     struct ExecuteParams {
         Action action;
@@ -80,17 +80,17 @@ contract LpAutomation is AccessControl, Common {
     function execute(ExecuteParams calldata params) public payable onlyRole(OPERATOR_ROLE) {
         params.nfpm.transferFrom(params.userAddress, address(this), params.tokenId);
 
-        // ExecuteState memory state;
-        (address token0, address token1, uint128 liquidity, int24 tickLower, int24 tickUpper, uint24 fee) = _getPosition(params.nfpm, params.protocol, params.tokenId);
+        ExecuteState memory state;
+        (state.token0, state.token1, state.liquidity, state.tickLower, state.tickUpper, state.fee) = _getPosition(params.nfpm, params.protocol, params.tokenId);
 
-        if (liquidity != params.liquidity) {
+        if (state.liquidity != params.liquidity) {
             revert LiquidityChanged();
         }
 
-        (uint256 amount0, uint256 amount1,,) = _decreaseFullLiquidityAndCollectAndTakeFees(params.nfpm, params.tokenId, params.liquidity, params.deadline, params.amountRemoveMin0, params.amountRemoveMin1, params.gasFeeX64 + params.protocolFeeX64);
+        (state.amount0, state.amount1,,) = _decreaseFullLiquidityAndCollectAndTakeFees(params.nfpm, params.tokenId, params.liquidity, params.deadline, params.amountRemoveMin0, params.amountRemoveMin1, params.gasFeeX64 + params.protocolFeeX64);
 
         if (params.action == Action.AUTO_ADJUST) {
-            if (tickLower == params.newTickLower && tickUpper == params.newTickUpper) {
+            if (state.tickLower == params.newTickLower && state.tickUpper == params.newTickUpper) {
                 revert SameRange();
             }
 
@@ -98,14 +98,14 @@ contract LpAutomation is AccessControl, Common {
             _swapAndMint(SwapAndMintParams(
                 params.protocol, 
                 params.nfpm, 
-                IERC20(token0), IERC20(token1), 
-                fee, 
-                tickLower, tickUpper, 
-                amount0,
-                amount1, 
+                IERC20(state.token0), IERC20(state.token1), 
+                state.fee, 
+                state.tickLower, state.tickUpper, 
+                state.amount0,
+                state.amount1, 
                 params.userAddress, 
                 params.deadline, 
-                params.targetToken == token0 ? IERC20(token1) : IERC20(token0),
+                params.targetToken == state.token0 ? IERC20(state.token1) : IERC20(state.token0),
                 
                 params.amountIn0,
                 params.amountOut0Min,
@@ -122,23 +122,23 @@ contract LpAutomation is AccessControl, Common {
         } else if (params.action == Action.AUTO_EXIT) {
             IWETH9 weth = _getWeth9(params.nfpm, params.protocol);
             uint256 targetAmount;
-            if (token0 != params.targetToken) {
-                (uint256 amountInDelta, uint256 amountOutDelta) = _swap(IERC20(token0), IERC20(params.targetToken), amount0, params.amountOut0Min, params.swapData0);
-                if (amountInDelta < amount0) {
-                    _transferToken(weth, params.userAddress, IERC20(token0), amount0 - amountInDelta, false);
+            if (state.token0 != params.targetToken) {
+                (uint256 amountInDelta, uint256 amountOutDelta) = _swap(IERC20(state.token0), IERC20(params.targetToken), state.amount0, params.amountOut0Min, params.swapData0);
+                if (amountInDelta < state.amount0) {
+                    _transferToken(weth, params.userAddress, IERC20(state.token0), state.amount0 - amountInDelta, false);
                 }
                 targetAmount += amountOutDelta;
             } else {
-                targetAmount += amount0; 
+                targetAmount += state.amount0; 
             }
-            if (token1 != params.targetToken) {
-                (uint256 amountInDelta, uint256 amountOutDelta) = _swap(IERC20(token1), IERC20(params.targetToken), amount1, params.amountOut1Min, params.swapData1);
-                if (amountInDelta < amount1) {
-                    _transferToken(weth, params.userAddress, IERC20(token1), amount1 - amountInDelta, false);
+            if (state.token1 != params.targetToken) {
+                (uint256 amountInDelta, uint256 amountOutDelta) = _swap(IERC20(state.token1), IERC20(params.targetToken), state.amount1, params.amountOut1Min, params.swapData1);
+                if (amountInDelta < state.amount1) {
+                    _transferToken(weth, params.userAddress, IERC20(state.token1), state.amount1 - amountInDelta, false);
                 }
                 targetAmount += amountOutDelta;
             } else {
-                targetAmount += amount1; 
+                targetAmount += state.amount1; 
             }
 
             // send complete target amount
