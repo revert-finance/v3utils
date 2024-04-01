@@ -2,10 +2,9 @@
 pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/access/AccessControl.sol";
-
 import "./Common.sol";
 
-contract LpAutomation is AccessControl, Common {
+contract V3Automation is AccessControl, Common {
 
     error SameRange();
     error LiquidityChanged();
@@ -15,10 +14,10 @@ contract LpAutomation is AccessControl, Common {
     bytes32 public constant OPERATOR_ROLE = bytes32(uint256(0x01));
     bytes32 public constant WITHDRAWER_ROLE = bytes32(uint256(0x02));
 
-    constructor(address _swapRouter) Common(_swapRouter) {
-        _grantRole(OWNER_ROLE, tx.origin);
-        _grantRole(OPERATOR_ROLE, tx.origin);
-        _grantRole(WITHDRAWER_ROLE, tx.origin);
+    constructor(address _swapRouter, address firstOwner) Common(_swapRouter) {
+        _grantRole(OWNER_ROLE, firstOwner);
+        _grantRole(OPERATOR_ROLE, firstOwner);
+        _grantRole(WITHDRAWER_ROLE, firstOwner);
     }
 
     enum Action {
@@ -41,8 +40,8 @@ contract LpAutomation is AccessControl, Common {
 
     struct ExecuteParams {
         Action action;
-        INonfungiblePositionManager nfpm;
         Protocol protocol;
+        INonfungiblePositionManager nfpm;
 
         address userAddress;
         uint256 tokenId;
@@ -160,6 +159,7 @@ contract LpAutomation is AccessControl, Common {
         } else {
             revert NotSupportedWhatToDo();
         }
+        params.nfpm.transferFrom(address(this), params.userAddress, params.tokenId);
     }
 
     /**

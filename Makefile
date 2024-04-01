@@ -14,4 +14,4 @@ deploy-%:
 	@echo CHAIN=$(CHAIN)
 	@echo $(CHAIN)_GAS_PRICE=$($(CHAIN)_GAS_PRICE)
 	@echo $(CHAIN)_RPC_URL=$($(CHAIN)_RPC_URL)
-	forge script script/V3Utils.s.sol:MyScript --legacy --with-gas-price $($(CHAIN)_GAS_PRICE) --rpc-url $($(CHAIN)_RPC_URL) --broadcast
+	forge script script/V3Utils.s.sol:MyScript --rpc-url $($(CHAIN)_RPC_URL) --broadcast
