@@ -14,5 +14,8 @@ chainConfigs:
   1: 
     smartWallet: 0x70270C228c5B4279d1578799926873aa72446CcD
   
+  8453:
+    smartWallet: 0x6fD481970744F9Bc0044a81859FD92431a2Dd67D
+  
 
   

@@ -65,6 +65,11 @@ Optimism
 forge script script/V3Utils.s.sol:MyScript --legacy --with-gas-price 100000000 --rpc-url $OPTIMISM_RPC_URL --broadcast
 ```
 
+Base
+```
+forge script script/V3Utils.s.sol:MyScript --legacy --with-gas-price 2800000 --rpc-url $BASE_RPC_URL --broadcast
+```
+
 # Verify Contract
 
 Ethereum
@@ -90,5 +95,10 @@ forge verify-contract --chain-id 56 --etherscan-api-key $BSCSCAN_API_KEY --verif
 Optimism
 ```
 forge verify-contract --chain-id 10 --etherscan-api-key $OPTIMISMSCAN_API_KEY --verifier-url https://api-optimistic.etherscan.io/api/ 0xD475bF392Cc10cB17990e15500B808b7b7e7471C src/V3Utils.sol:V3Utils --constructor-args $(cast abi-encode "constructor(address)" "0xf6f2dafa542FefAae22187632Ef30D2dAa252b4e")
+```
+
+Base
+```
+forge verify-contract --chain-id 8453 --etherscan-api-key $BASESCAN_API_KEY --verifier-url https://api.basescan.org/api/ 0x5b2738F74b0d7bb37D069189c8464061d41D6ED0 src/V3Utils.sol:V3Utils --constructor-args $(cast abi-encode "constructor(address)" "0x6fD481970744F9Bc0044a81859FD92431a2Dd67D")
 ```
 
