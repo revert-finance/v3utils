@@ -71,6 +71,9 @@ contract V3Automation is AccessControl, Common {
         int24 newTickLower;
         int24 newTickUpper;
 
+        // compound fee to new position or not
+        bool compoundFees;
+
         // min amount to be added after swap
         uint256 amountAddMin0;
         uint256 amountAddMin1;
@@ -95,7 +98,7 @@ contract V3Automation is AccessControl, Common {
             revert LiquidityChanged();
         }
 
-        (state.amount0, state.amount1,,) = _decreaseFullLiquidityAndCollectAndTakeFees(params.nfpm, params.tokenId, params.liquidity, params.deadline, params.amountRemoveMin0, params.amountRemoveMin1, params.gasFeeX64 + params.protocolFeeX64);
+        (state.amount0, state.amount1) = _decreaseLiquidityAndCollectAndTakeFees(DecreaseAndCollectAndTakeFeesParams(params.nfpm, IERC20(state.token0), IERC20(state.token1), params.tokenId, params.liquidity, params.deadline, params.amountRemoveMin0, params.amountRemoveMin1, params.compoundFees, params.gasFeeX64 + params.protocolFeeX64));
 
         if (params.action == Action.AUTO_ADJUST) {
             if (state.tickLower == params.newTickLower && state.tickUpper == params.newTickUpper) {
@@ -103,7 +106,7 @@ contract V3Automation is AccessControl, Common {
             }
 
             // todo: takes returns to emit necessary events
-            _swapAndMint(SwapAndMintParams(
+            (uint256 newTokenId,,,) = _swapAndMint(SwapAndMintParams(
                 params.protocol, 
                 params.nfpm, 
                 IERC20(state.token0), IERC20(state.token1), 
@@ -127,6 +130,7 @@ contract V3Automation is AccessControl, Common {
                 params.amountAddMin1, 
                 ""
             ), false);
+            emit ChangeRange(address(params.nfpm), params.tokenId, newTokenId);
         } else if (params.action == Action.AUTO_EXIT) {
             IWETH9 weth = _getWeth9(params.nfpm, params.protocol);
             uint256 targetAmount;

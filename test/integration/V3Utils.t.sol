@@ -30,13 +30,14 @@ contract V3UtilsIntegrationTest is IntegrationTestBase {
             0,
             0,
             0,
+            true,
             0,
             0,
             0,
             0,
-            TEST_NFT_ACCOUNT,
             TEST_NFT_ACCOUNT,
             false,
+            0,
             "",
             ""
         );
@@ -94,13 +95,14 @@ contract V3UtilsIntegrationTest is IntegrationTestBase {
             100, // change fee as well
             MIN_TICK_100,
             -MIN_TICK_100,
+            true,
             liquidityBefore, // take all liquidity
             0,
             0,
             block.timestamp,
             TEST_NFT_ACCOUNT,
-            TEST_NFT_ACCOUNT,
             false,
+            0,
             "",
             ""
         );
@@ -139,13 +141,14 @@ contract V3UtilsIntegrationTest is IntegrationTestBase {
             100, // change fee as well
             MIN_TICK_100,
             -MIN_TICK_100,
+            true,
             liquidityBefore, // take all liquidity
             0,
             0,
             block.timestamp,
             TEST_NFT_ACCOUNT,
-            TEST_NFT_ACCOUNT,
             false,
+            0,
             "",
             ""
         );
@@ -187,13 +190,14 @@ contract V3UtilsIntegrationTest is IntegrationTestBase {
             100, // change fee as well
             MIN_TICK_100,
             -MIN_TICK_100,
+            true,
             liquidityBefore, // take all liquidity
             0,
             0,
             block.timestamp,
             TEST_NFT_ACCOUNT,
-            TEST_NFT_ACCOUNT,
             false,
+            0,
             "",
             ""
         );
@@ -231,13 +235,14 @@ contract V3UtilsIntegrationTest is IntegrationTestBase {
             0,
             0,
             0,
+            true,
             0,
             0,
             0,
             block.timestamp,
             TEST_NFT_3_ACCOUNT,
-            TEST_NFT_3_ACCOUNT,
             false,
+            0,
             "",
             ""
         );
@@ -290,13 +295,14 @@ contract V3UtilsIntegrationTest is IntegrationTestBase {
             0,
             0,
             0,
+            true,
             0,
             0,
             0,
             block.timestamp,
             TEST_NFT_3_ACCOUNT,
-            TEST_NFT_3_ACCOUNT,
             false,
+            0,
             "",
             ""
         );
@@ -352,13 +358,14 @@ contract V3UtilsIntegrationTest is IntegrationTestBase {
             0,
             0,
             0,
+            true,
             liquidity,
             0,
             0,
             block.timestamp,
             TEST_NFT_ACCOUNT,
-            TEST_NFT_ACCOUNT,
             false,
+            0,
             "",
             ""
         );
@@ -414,13 +421,14 @@ contract V3UtilsIntegrationTest is IntegrationTestBase {
             0,
             0,
             0,
+            true,
             0,
             0,
             0,
             block.timestamp,
             TEST_NFT_ACCOUNT,
-            TEST_NFT_ACCOUNT,
             false,
+            0,
             "",
             ""
         );

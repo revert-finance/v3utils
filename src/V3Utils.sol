@@ -56,6 +56,8 @@ contract V3Utils is IERC721Receiver, Common {
         int24 tickLower;
         int24 tickUpper;
         
+        bool compoundFees;
+
         // remove liquidity amount for COMPOUND_FEES (in this case should be probably 0) / CHANGE_RANGE / WITHDRAW_AND_COLLECT_AND_SWAP
         uint128 liquidity;
 
@@ -69,12 +71,11 @@ contract V3Utils is IERC721Receiver, Common {
         // left over tokens will be sent to this address
         address recipient;
 
-        // recipient of newly minted nft (the incoming NFT will ALWAYS be returned to from)
-        // deprecated
-        address recipientNFT;
-
         // if tokenIn or tokenOut is WETH - unwrap
         bool unwrap;
+
+        // protocol fees
+        uint64 protocolFees;
 
         // data sent with returned token to IERC721Receiver (optional) 
         bytes returnData;
@@ -111,8 +112,8 @@ contract V3Utils is IERC721Receiver, Common {
 
         (address token0,address token1,uint128 liquidity,,,) = _getPosition(nfpm, instructions.protocol, tokenId);
 
-        (uint256 amount0, uint256 amount1,,) = _decreaseFullLiquidityAndCollectAndTakeFees(nfpm, tokenId, instructions.liquidity, instructions.deadline, instructions.amountRemoveMin0, instructions.amountRemoveMin1, 0);
-        
+        (uint256 amount0, uint256 amount1) = _decreaseLiquidityAndCollectAndTakeFees(DecreaseAndCollectAndTakeFeesParams(nfpm, IERC20(token0), IERC20(token1), tokenId, instructions.liquidity, instructions.deadline, instructions.amountRemoveMin0, instructions.amountRemoveMin1, instructions.compoundFees, instructions.protocolFees));
+
         // check if enough tokens are available for swaps
         if (amount0 < instructions.amountIn0 || amount1 < instructions.amountIn1) {
             revert AmountError();
@@ -141,7 +142,7 @@ contract V3Utils is IERC721Receiver, Common {
                 (newTokenId,,,) = _swapAndMint(SwapAndMintParams(instructions.protocol, nfpm, IERC20(token0), IERC20(token1), instructions.fee, instructions.tickLower, instructions.tickUpper, amount0, amount1, instructions.recipient, instructions.deadline, IERC20(address(0)), 0, 0, "", 0, 0, "", instructions.amountAddMin0, instructions.amountAddMin1, instructions.swapAndMintReturnData), instructions.unwrap);
             }
 
-            emit ChangeRange(tokenId, newTokenId);
+            emit ChangeRange(msg.sender, tokenId, newTokenId);
         } else if (instructions.whatToDo == WhatToDo.WITHDRAW_AND_COLLECT_AND_SWAP) {
             IWETH9 weth = _getWeth9(nfpm, instructions.protocol);
             uint256 targetAmount;

@@ -40,6 +40,7 @@ contract V3AutomationIntegrationTest is IntegrationTestBase {
             0,
             MIN_TICK_100,
             -MIN_TICK_100,
+            true,
             0,
             0
         );
@@ -90,6 +91,7 @@ contract V3AutomationIntegrationTest is IntegrationTestBase {
             0,
             MIN_TICK_100,
             -MIN_TICK_100,
+            true,
             0,
             0
         );

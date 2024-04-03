@@ -66,7 +66,7 @@ abstract contract Common {
 
     // events
     event CompoundFees(uint256 indexed tokenId, uint128 liquidity, uint256 amount0, uint256 amount1);
-    event ChangeRange(uint256 indexed tokenId, uint256 newTokenId);
+    event ChangeRange(address indexed nfpm, uint256 indexed tokenId, uint256 newTokenId);
     event WithdrawAndCollectAndSwap(uint256 indexed tokenId, address token, uint256 amount);
     event Swap(address indexed tokenIn, address indexed tokenOut, uint256 amountIn, uint256 amountOut);
     event SwapAndMint(uint256 indexed tokenId, uint128 liquidity, uint256 amount0, uint256 amount1);
@@ -165,6 +165,19 @@ abstract contract Common {
         uint256 added0;
         uint256 added1;
         bool unwrap;
+    }
+
+    struct DecreaseAndCollectAndTakeFeesParams {
+        INonfungiblePositionManager nfpm;
+        IERC20 token0;
+        IERC20 token1;
+        uint256 tokenId; 
+        uint128 liquidity;
+        uint256 deadline; 
+        uint256 token0Min; 
+        uint256 token1Min;
+        bool compoundFees;
+        uint64 feesX64;
     }
 
     // checks if required amounts are provided and are exact - wraps any provided ETH as WETH
@@ -468,33 +481,39 @@ abstract contract Common {
         }
     }
 
-    function _decreaseFullLiquidityAndCollectAndTakeFees(
-        INonfungiblePositionManager nfpm, 
-        uint256 tokenId, 
-        uint128 liquidity, 
-        uint256 deadline, 
-        uint256 token0Min, 
-        uint256 token1Min,
-        
-        uint64 feesX64
-    ) internal returns (uint256 amount0, uint256 amount1, uint256 fees0, uint256 fees1) {
-        if (liquidity > 0) {
-            _decreaseLiquidity(nfpm, tokenId, liquidity, deadline, token0Min, token1Min);
-        }
-        (amount0, amount1) = nfpm.collect(
+    function _decreaseLiquidityAndCollectAndTakeFees(DecreaseAndCollectAndTakeFeesParams memory params) internal returns (uint256 amount0, uint256 amount1) {
+        (uint256 positionAmount0, uint256 positionAmount1) = _decreaseLiquidity(params.nfpm, params.tokenId, params.liquidity, params.deadline, params.token0Min, params.token1Min);
+        (amount0, amount1) = params.nfpm.collect(
             univ3.INonfungiblePositionManager.CollectParams(
-                tokenId,
+                params.tokenId,
                 address(this),
                 type(uint128).max,
                 type(uint128).max
             )
         );
-        if (feesX64 > 0) {
-            fees0 = FullMath.mulDiv(amount0, feesX64, Q64);
-            fees1 = FullMath.mulDiv(amount1, feesX64, Q64);
-            amount0 -= fees0;
-            amount1 -= fees1;
+
+        if (!params.compoundFees) {
+            {
+                uint256 fees0Return = amount0 - positionAmount0;
+                uint256 fees1Return = amount1 - positionAmount1;
+                // return feesToken
+                if (fees0Return > 0) {
+                    SafeERC20.safeTransferFrom(params.token0, address(this), msg.sender, fees0Return);
+                }
+                if (fees1Return > 0) {
+                    SafeERC20.safeTransferFrom(params.token1, address(this), msg.sender, fees1Return);
+                }
+            }
+            amount0 = positionAmount0;
+            amount1 = positionAmount1;
         }
+        
+
+        if (params.feesX64 > 0) {
+            amount0 -= FullMath.mulDiv(amount0, params.feesX64, Q64);
+            amount1 -= FullMath.mulDiv(amount1, params.feesX64, Q64);
+        }
+
     }
 
     function _getWeth9(INonfungiblePositionManager nfpm, Protocol protocol) view internal returns (IWETH9 weth) {
