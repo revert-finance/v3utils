@@ -41,10 +41,7 @@ contract V3AutomationIntegrationTest is IntegrationTestBase {
             MIN_TICK_100,
             -MIN_TICK_100,
             0,
-            0,
-            0,
-            "",
-            ""
+            0
         );
 
         // using approve / execute pattern
@@ -94,10 +91,7 @@ contract V3AutomationIntegrationTest is IntegrationTestBase {
             MIN_TICK_100,
             -MIN_TICK_100,
             0,
-            0,
-            0,
-            "",
-            ""
+            0
         );
 
         // using approve / execute pattern
@@ -109,6 +103,4 @@ contract V3AutomationIntegrationTest is IntegrationTestBase {
         vm.expectRevert();
         v3automation.execute(params);
     }
-
-    
 }
