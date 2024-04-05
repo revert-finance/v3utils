@@ -489,7 +489,6 @@ abstract contract Common {
                 type(uint128).max
             )
         );
-
         if (!params.compoundFees) {
             {
                 uint256 fees0Return = amount0 - positionAmount0;

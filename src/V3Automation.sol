@@ -99,7 +99,6 @@ contract V3Automation is AccessControl, Common {
         }
 
         (state.amount0, state.amount1) = _decreaseLiquidityAndCollectAndTakeFees(DecreaseAndCollectAndTakeFeesParams(params.nfpm, IERC20(state.token0), IERC20(state.token1), params.tokenId, params.liquidity, params.deadline, params.amountRemoveMin0, params.amountRemoveMin1, params.compoundFees, params.gasFeeX64 + params.protocolFeeX64));
-
         if (params.action == Action.AUTO_ADJUST) {
             if (state.tickLower == params.newTickLower && state.tickUpper == params.newTickUpper) {
                 revert SameRange();
@@ -109,9 +108,11 @@ contract V3Automation is AccessControl, Common {
             (uint256 newTokenId,,,) = _swapAndMint(SwapAndMintParams(
                 params.protocol, 
                 params.nfpm, 
-                IERC20(state.token0), IERC20(state.token1), 
+                IERC20(state.token0),
+                IERC20(state.token1), 
                 state.fee, 
-                state.tickLower, state.tickUpper, 
+                params.newTickLower, 
+                params.newTickUpper, 
                 state.amount0,
                 state.amount1, 
                 params.userAddress, 
