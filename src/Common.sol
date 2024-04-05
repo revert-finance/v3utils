@@ -375,11 +375,9 @@ abstract contract Common {
         }
 
         if (total0 != 0) {
-            SafeERC20.safeApprove(params.token0, address(params.nfpm), 0);
             SafeERC20.safeApprove(params.token0, address(params.nfpm), total0);
         }
         if (total1 != 0) {
-            SafeERC20.safeApprove(params.token1, address(params.nfpm), 0);
             SafeERC20.safeApprove(params.token1, address(params.nfpm), total1);
         }
     }
@@ -498,10 +496,10 @@ abstract contract Common {
                 uint256 fees1Return = amount1 - positionAmount1;
                 // return feesToken
                 if (fees0Return > 0) {
-                    SafeERC20.safeTransferFrom(params.token0, address(this), msg.sender, fees0Return);
+                    params.token0.transfer(msg.sender, fees0Return);
                 }
                 if (fees1Return > 0) {
-                    SafeERC20.safeTransferFrom(params.token1, address(this), msg.sender, fees1Return);
+                    params.token1.transfer(msg.sender, fees1Return);
                 }
             }
             amount0 = positionAmount0;
