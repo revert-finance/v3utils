@@ -45,7 +45,7 @@ There need to be done some minimal changes to the code and linked library interf
 Change POOL_INIT_CODE_HASH in PoolAddress.sol to
 
 ```
-bytes32 internal constant POOL_INIT_CODE_HASH = 0xe34f199b19b2b4f47f68442619d555527d244f78a3297ea89325f843f87b8b54;
+bytes32 internal constant POOL_INIT_CODE_HASH = 0x6ce8eb472fa82df5469c6ab6d485f17c3ad13c8cd7af59b3d4a8026c5ce0f7e2;
 ```
 
 IUniswapV3PoolState change slot0() function to this (note the uint32 for feeProtocol)
