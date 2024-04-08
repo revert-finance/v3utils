@@ -9,7 +9,7 @@ contract V3AutomationIntegrationTest is IntegrationTestBase {
         _setupBase();
     }
 
-    function testAutoAdjustRangee() external {
+    function testAutoAdjustRange() external {
         // add liquidity to existing (empty) position (add 1 DAI / 0 USDC)
         _increaseLiquidity();
 
@@ -27,12 +27,12 @@ contract V3AutomationIntegrationTest is IntegrationTestBase {
             TEST_NFT,
             liquidityBefore,
             address(USDC),
-            0,
-            0,
-            "",
             500000000000000000,
             400000,
             _get05DAIToUSDCSwapData(),
+            0,
+            0,
+            "",
             0,
             0,
             block.timestamp,

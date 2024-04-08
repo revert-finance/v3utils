@@ -104,7 +104,6 @@ contract V3Automation is AccessControl, Common {
                 revert SameRange();
             }
 
-            // todo: takes returns to emit necessary events
             (uint256 newTokenId,,,) = _swapAndMint(SwapAndMintParams(
                 params.protocol, 
                 params.nfpm, 
@@ -119,13 +118,13 @@ contract V3Automation is AccessControl, Common {
                 params.deadline, 
                 params.targetToken == state.token0 ? IERC20(state.token1) : IERC20(state.token0),
                 
-                params.amountIn0,
-                params.amountOut0Min,
-                params.swapData0,
-
-                params.amountIn1,
-                params.amountOut1Min,
-                params.swapData1,
+                params.targetToken == state.token0 ? params.amountIn1 : 0,
+                params.targetToken == state.token0 ? params.amountOut1Min : 0,
+                params.targetToken == state.token0 ? params.swapData1 : bytes(""),
+                
+                params.targetToken == state.token0 ? 0 : params.amountIn0,
+                params.targetToken == state.token0 ? 0 : params.amountOut0Min,
+                params.targetToken == state.token0 ? bytes("") : params.swapData0,
 
                 params.amountAddMin0, 
                 params.amountAddMin1, 
