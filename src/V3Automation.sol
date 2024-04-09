@@ -3,6 +3,7 @@ pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "./Common.sol";
+import "forge-std/console.sol";
 
 contract V3Automation is AccessControl, Common {
 
@@ -22,7 +23,8 @@ contract V3Automation is AccessControl, Common {
 
     enum Action {
         AUTO_ADJUST,
-        AUTO_EXIT
+        AUTO_EXIT,
+        AUTO_COMPOUND
     }
 
     struct ExecuteState {
@@ -94,7 +96,7 @@ contract V3Automation is AccessControl, Common {
         ExecuteState memory state;
         (state.token0, state.token1, state.liquidity, state.tickLower, state.tickUpper, state.fee) = _getPosition(params.nfpm, params.protocol, params.tokenId);
 
-        if (state.liquidity != params.liquidity) {
+        if (state.liquidity != params.liquidity && params.liquidity != 0) {
             revert LiquidityChanged();
         }
 
@@ -103,33 +105,14 @@ contract V3Automation is AccessControl, Common {
             if (state.tickLower == params.newTickLower && state.tickUpper == params.newTickUpper) {
                 revert SameRange();
             }
-
-            (uint256 newTokenId,,,) = _swapAndMint(SwapAndMintParams(
-                params.protocol, 
-                params.nfpm, 
-                IERC20(state.token0),
-                IERC20(state.token1), 
-                state.fee, 
-                params.newTickLower, 
-                params.newTickUpper, 
-                state.amount0,
-                state.amount1, 
-                params.userAddress, 
-                params.deadline, 
-                params.targetToken == state.token0 ? IERC20(state.token1) : IERC20(state.token0),
-                
-                params.targetToken == state.token0 ? params.amountIn1 : 0,
-                params.targetToken == state.token0 ? params.amountOut1Min : 0,
-                params.targetToken == state.token0 ? params.swapData1 : bytes(""),
-                
-                params.targetToken == state.token0 ? 0 : params.amountIn0,
-                params.targetToken == state.token0 ? 0 : params.amountOut0Min,
-                params.targetToken == state.token0 ? bytes("") : params.swapData0,
-
-                params.amountAddMin0, 
-                params.amountAddMin1, 
-                ""
-            ), false);
+            uint256 newTokenId;
+            if (params.targetToken == state.token0) {
+                (newTokenId,,,) = _swapAndMint(SwapAndMintParams(params.protocol, params.nfpm, IERC20(state.token0), IERC20(state.token1), state.fee, params.newTickLower, params.newTickUpper, state.amount0, state.amount1, params.userAddress, params.deadline, IERC20(state.token1), params.amountIn1, params.amountOut1Min, params.swapData1, 0, 0, bytes(""), params.amountAddMin0, params.amountAddMin1, ""), false);
+            } else if (params.targetToken == state.token1) {
+                (newTokenId,,,) = _swapAndMint(SwapAndMintParams(params.protocol, params.nfpm, IERC20(state.token0), IERC20(state.token1), state.fee, params.newTickLower, params.newTickUpper, state.amount0, state.amount1, params.userAddress, params.deadline, IERC20(state.token0), 0, 0, bytes(""), params.amountIn0, params.amountOut0Min, params.swapData0, params.amountAddMin0, params.amountAddMin1, ""), false);
+            } else {
+                (newTokenId,,,) = _swapAndMint(SwapAndMintParams(params.protocol, params.nfpm, IERC20(state.token0), IERC20(state.token1), state.fee, params.newTickLower, params.newTickUpper, state.amount0, state.amount1, params.userAddress, params.deadline, IERC20(address(0)), 0, 0, bytes(""), 0, 0, bytes(""), params.amountAddMin0, params.amountAddMin1, ""), false);
+            }
             emit ChangeRange(address(params.nfpm), params.tokenId, newTokenId);
         } else if (params.action == Action.AUTO_EXIT) {
             IWETH9 weth = _getWeth9(params.nfpm, params.protocol);
@@ -157,8 +140,16 @@ contract V3Automation is AccessControl, Common {
             if (targetAmount != 0 && params.targetToken != address(0)) {
                 _transferToken(weth, params.userAddress, IERC20(params.targetToken), targetAmount, false);
             }
+        } else if (params.action == Action.AUTO_COMPOUND) {
+            if (params.targetToken == state.token0) {
+                _swapAndIncrease(SwapAndIncreaseLiquidityParams(params.protocol, params.nfpm, params.tokenId, state.amount0, state.amount1, params.userAddress, params.deadline, IERC20(state.token1), params.amountIn1, params.amountOut1Min, params.swapData1, 0, 0, bytes(""), params.amountAddMin0, params.amountAddMin1), IERC20(state.token0), IERC20(state.token1), false);
+            } else if (state.token0 == state.token1) {
+                _swapAndIncrease(SwapAndIncreaseLiquidityParams(params.protocol, params.nfpm, params.tokenId, state.amount0, state.amount1, params.userAddress, params.deadline, IERC20(state.token0), 0, 0, bytes(""), params.amountIn0, params.amountOut0Min, params.swapData0, params.amountAddMin0, params.amountAddMin1), IERC20(state.token0), IERC20(state.token1), false);
+            } else {
+                _swapAndIncrease(SwapAndIncreaseLiquidityParams(params.protocol, params.nfpm, params.tokenId, state.amount0, state.amount1, params.userAddress, params.deadline, IERC20(address(0)), 0, 0, bytes(""), 0, 0, bytes(""), params.amountAddMin0, params.amountAddMin1), IERC20(state.token0), IERC20(state.token1), false);
+            }
         } else {
-            revert NotSupportedWhatToDo();
+            revert NotSupportedAction();
         }
         params.nfpm.transferFrom(address(this), params.userAddress, params.tokenId);
     }

@@ -53,6 +53,7 @@ abstract contract Common {
     error WrongContract();
     error SelfSend();
     error NotSupportedWhatToDo();
+    error NotSupportedAction();
     error SameToken();
     error SwapFailed();
     error AmountError();
@@ -375,10 +376,10 @@ abstract contract Common {
         }
 
         if (total0 != 0) {
-            SafeERC20.safeApprove(params.token0, address(params.nfpm), total0);
+            params.token0.approve(address(params.nfpm), total0);
         }
         if (total1 != 0) {
-            SafeERC20.safeApprove(params.token1, address(params.nfpm), total1);
+            params.token1.approve(address(params.nfpm), total1);
         }
     }
 
