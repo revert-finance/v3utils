@@ -67,7 +67,7 @@ abstract contract Common {
 
     // events
     event CompoundFees(uint256 indexed tokenId, uint128 liquidity, uint256 amount0, uint256 amount1);
-    event ChangeRange(address indexed nfpm, uint256 indexed tokenId, uint256 newTokenId);
+    event ChangeRange(address indexed nfpm, uint256 indexed tokenId, uint256 newTokenId, uint256 newLiquidity, uint256 token0Added, uint256 token1Added);
     event WithdrawAndCollectAndSwap(uint256 indexed tokenId, address token, uint256 amount);
     event Swap(address indexed tokenIn, address indexed tokenOut, uint256 amountIn, uint256 amountOut);
     event SwapAndMint(uint256 indexed tokenId, uint128 liquidity, uint256 amount0, uint256 amount1);

@@ -106,14 +106,17 @@ contract V3Automation is AccessControl, Common {
                 revert SameRange();
             }
             uint256 newTokenId;
+            uint256 newLiquidity;
+            uint256 token0Added;
+            uint256 token1Added;
             if (params.targetToken == state.token0) {
-                (newTokenId,,,) = _swapAndMint(SwapAndMintParams(params.protocol, params.nfpm, IERC20(state.token0), IERC20(state.token1), state.fee, params.newTickLower, params.newTickUpper, state.amount0, state.amount1, params.userAddress, params.deadline, IERC20(state.token1), params.amountIn1, params.amountOut1Min, params.swapData1, 0, 0, bytes(""), params.amountAddMin0, params.amountAddMin1, ""), false);
+                (newTokenId, newLiquidity, token0Added, token1Added) = _swapAndMint(SwapAndMintParams(params.protocol, params.nfpm, IERC20(state.token0), IERC20(state.token1), state.fee, params.newTickLower, params.newTickUpper, state.amount0, state.amount1, params.userAddress, params.deadline, IERC20(state.token1), params.amountIn1, params.amountOut1Min, params.swapData1, 0, 0, bytes(""), params.amountAddMin0, params.amountAddMin1, ""), false);
             } else if (params.targetToken == state.token1) {
-                (newTokenId,,,) = _swapAndMint(SwapAndMintParams(params.protocol, params.nfpm, IERC20(state.token0), IERC20(state.token1), state.fee, params.newTickLower, params.newTickUpper, state.amount0, state.amount1, params.userAddress, params.deadline, IERC20(state.token0), 0, 0, bytes(""), params.amountIn0, params.amountOut0Min, params.swapData0, params.amountAddMin0, params.amountAddMin1, ""), false);
+                (newTokenId, newLiquidity, token0Added, token1Added) = _swapAndMint(SwapAndMintParams(params.protocol, params.nfpm, IERC20(state.token0), IERC20(state.token1), state.fee, params.newTickLower, params.newTickUpper, state.amount0, state.amount1, params.userAddress, params.deadline, IERC20(state.token0), 0, 0, bytes(""), params.amountIn0, params.amountOut0Min, params.swapData0, params.amountAddMin0, params.amountAddMin1, ""), false);
             } else {
-                (newTokenId,,,) = _swapAndMint(SwapAndMintParams(params.protocol, params.nfpm, IERC20(state.token0), IERC20(state.token1), state.fee, params.newTickLower, params.newTickUpper, state.amount0, state.amount1, params.userAddress, params.deadline, IERC20(address(0)), 0, 0, bytes(""), 0, 0, bytes(""), params.amountAddMin0, params.amountAddMin1, ""), false);
+                (newTokenId, newLiquidity, token0Added, token1Added) = _swapAndMint(SwapAndMintParams(params.protocol, params.nfpm, IERC20(state.token0), IERC20(state.token1), state.fee, params.newTickLower, params.newTickUpper, state.amount0, state.amount1, params.userAddress, params.deadline, IERC20(address(0)), 0, 0, bytes(""), 0, 0, bytes(""), params.amountAddMin0, params.amountAddMin1, ""), false);
             }
-            emit ChangeRange(address(params.nfpm), params.tokenId, newTokenId);
+            emit ChangeRange(address(params.nfpm), params.tokenId, newTokenId, newLiquidity, token0Added, token1Added);
         } else if (params.action == Action.AUTO_EXIT) {
             IWETH9 weth = _getWeth9(params.nfpm, params.protocol);
             uint256 targetAmount;

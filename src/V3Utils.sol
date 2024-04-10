@@ -132,17 +132,19 @@ contract V3Utils is IERC721Receiver, Common {
         } else if (instructions.whatToDo == WhatToDo.CHANGE_RANGE) {
 
             uint256 newTokenId;
-
+            uint256 newLiquidity;
+            uint256 token0Added;
+            uint256 token1Added;
             if (instructions.targetToken == token0) {
-                (newTokenId,,,) = _swapAndMint(SwapAndMintParams(instructions.protocol, nfpm, IERC20(token0), IERC20(token1), instructions.fee, instructions.tickLower, instructions.tickUpper, amount0, amount1, instructions.recipient, instructions.deadline, IERC20(token1), instructions.amountIn1, instructions.amountOut1Min, instructions.swapData1, 0, 0, "", instructions.amountAddMin0, instructions.amountAddMin1, instructions.swapAndMintReturnData), instructions.unwrap);
+                (newTokenId, newLiquidity, token0Added, token1Added) = _swapAndMint(SwapAndMintParams(instructions.protocol, nfpm, IERC20(token0), IERC20(token1), instructions.fee, instructions.tickLower, instructions.tickUpper, amount0, amount1, instructions.recipient, instructions.deadline, IERC20(token1), instructions.amountIn1, instructions.amountOut1Min, instructions.swapData1, 0, 0, "", instructions.amountAddMin0, instructions.amountAddMin1, instructions.swapAndMintReturnData), instructions.unwrap);
             } else if (instructions.targetToken == token1) {
-                (newTokenId,,,) = _swapAndMint(SwapAndMintParams(instructions.protocol, nfpm, IERC20(token0), IERC20(token1), instructions.fee, instructions.tickLower, instructions.tickUpper, amount0, amount1, instructions.recipient, instructions.deadline, IERC20(token0), 0, 0, "", instructions.amountIn0, instructions.amountOut0Min, instructions.swapData0, instructions.amountAddMin0, instructions.amountAddMin1, instructions.swapAndMintReturnData), instructions.unwrap);
+                (newTokenId, newLiquidity, token0Added, token1Added) = _swapAndMint(SwapAndMintParams(instructions.protocol, nfpm, IERC20(token0), IERC20(token1), instructions.fee, instructions.tickLower, instructions.tickUpper, amount0, amount1, instructions.recipient, instructions.deadline, IERC20(token0), 0, 0, "", instructions.amountIn0, instructions.amountOut0Min, instructions.swapData0, instructions.amountAddMin0, instructions.amountAddMin1, instructions.swapAndMintReturnData), instructions.unwrap);
             } else {
                 // no swap is done here
-                (newTokenId,,,) = _swapAndMint(SwapAndMintParams(instructions.protocol, nfpm, IERC20(token0), IERC20(token1), instructions.fee, instructions.tickLower, instructions.tickUpper, amount0, amount1, instructions.recipient, instructions.deadline, IERC20(address(0)), 0, 0, "", 0, 0, "", instructions.amountAddMin0, instructions.amountAddMin1, instructions.swapAndMintReturnData), instructions.unwrap);
+                (newTokenId, newLiquidity, token0Added, token1Added) = _swapAndMint(SwapAndMintParams(instructions.protocol, nfpm, IERC20(token0), IERC20(token1), instructions.fee, instructions.tickLower, instructions.tickUpper, amount0, amount1, instructions.recipient, instructions.deadline, IERC20(address(0)), 0, 0, "", 0, 0, "", instructions.amountAddMin0, instructions.amountAddMin1, instructions.swapAndMintReturnData), instructions.unwrap);
             }
 
-            emit ChangeRange(msg.sender, tokenId, newTokenId);
+            emit ChangeRange(msg.sender, tokenId, newTokenId, newLiquidity, token0Added, token1Added);
         } else if (instructions.whatToDo == WhatToDo.WITHDRAW_AND_COLLECT_AND_SWAP) {
             IWETH9 weth = _getWeth9(nfpm, instructions.protocol);
             uint256 targetAmount;
