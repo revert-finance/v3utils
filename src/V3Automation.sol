@@ -100,7 +100,31 @@ contract V3Automation is AccessControl, Common {
             revert LiquidityChanged();
         }
 
-        (state.amount0, state.amount1) = _decreaseLiquidityAndCollectAndTakeFees(DecreaseAndCollectAndTakeFeesParams(params.nfpm, IERC20(state.token0), IERC20(state.token1), params.tokenId, params.liquidity, params.deadline, params.amountRemoveMin0, params.amountRemoveMin1, params.compoundFees, params.gasFeeX64 + params.protocolFeeX64));
+        (state.amount0, state.amount1) = _decreaseLiquidityAndCollectFees(DecreaseAndCollectFeesParams(params.nfpm, IERC20(state.token0), IERC20(state.token1), params.tokenId, params.liquidity, params.deadline, params.amountRemoveMin0, params.amountRemoveMin1, params.compoundFees));
+        
+        // take fees
+        {
+            // take gas fees
+            if (params.gasFeeX64 > 0) {
+                uint256 feeAmount0 = FullMath.mulDiv(state.amount0, params.gasFeeX64, Q64);
+                uint256 feeAmount1 = FullMath.mulDiv(state.amount1, params.gasFeeX64, Q64);
+                emit TakeFees(address(params.nfpm) ,params.tokenId, params.userAddress, state.token0, state.token1, state.amount0, state.amount1, feeAmount0, feeAmount1, params.gasFeeX64, FeeType.GAS_FEE);
+
+                state.amount0 -= feeAmount0;
+                state.amount1 -= feeAmount1;
+            }
+
+            // take protocol fees
+            if (params.protocolFeeX64 > 0) {
+                uint256 feeAmount0 = FullMath.mulDiv(state.amount0, params.protocolFeeX64, Q64);
+                uint256 feeAmount1 = FullMath.mulDiv(state.amount1, params.protocolFeeX64, Q64);
+                emit TakeFees(address(params.nfpm), params.tokenId, params.userAddress, state.token0, state.token1, state.amount0, state.amount1, feeAmount0, feeAmount1, params.protocolFeeX64, FeeType.PROTOCOL_FEE);
+
+                state.amount0 -= feeAmount0;
+                state.amount1 -= feeAmount1;
+            }
+        }
+
         if (params.action == Action.AUTO_ADJUST) {
             if (state.tickLower == params.newTickLower && state.tickUpper == params.newTickUpper) {
                 revert SameRange();

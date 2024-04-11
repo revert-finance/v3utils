@@ -112,7 +112,7 @@ contract V3Utils is IERC721Receiver, Common {
 
         (address token0,address token1,uint128 liquidity,,,) = _getPosition(nfpm, instructions.protocol, tokenId);
 
-        (uint256 amount0, uint256 amount1) = _decreaseLiquidityAndCollectAndTakeFees(DecreaseAndCollectAndTakeFeesParams(nfpm, IERC20(token0), IERC20(token1), tokenId, instructions.liquidity, instructions.deadline, instructions.amountRemoveMin0, instructions.amountRemoveMin1, instructions.compoundFees, instructions.protocolFees));
+        (uint256 amount0, uint256 amount1) = _decreaseLiquidityAndCollectFees(DecreaseAndCollectFeesParams(nfpm, IERC20(token0), IERC20(token1), tokenId, instructions.liquidity, instructions.deadline, instructions.amountRemoveMin0, instructions.amountRemoveMin1, instructions.compoundFees));
 
         // check if enough tokens are available for swaps
         if (amount0 < instructions.amountIn0 || amount1 < instructions.amountIn1) {

@@ -67,6 +67,7 @@ abstract contract Common {
 
     // events
     event CompoundFees(uint256 indexed tokenId, uint128 liquidity, uint256 amount0, uint256 amount1);
+    event TakeFees(address indexed nfpm, uint256 indexed tokenId, address indexed userAddress, address token0, address token1, uint256 amount0, uint256 amount1, uint256 feeAmount0, uint256 feeAmount1, uint64 feeX64, FeeType feeType);
     event ChangeRange(address indexed nfpm, uint256 indexed tokenId, uint256 newTokenId, uint256 newLiquidity, uint256 token0Added, uint256 token1Added);
     event WithdrawAndCollectAndSwap(uint256 indexed tokenId, address token, uint256 amount);
     event Swap(address indexed tokenIn, address indexed tokenOut, uint256 amountIn, uint256 amountOut);
@@ -83,6 +84,12 @@ abstract contract Common {
     enum Protocol {
         UNI_V3,
         ALGEBRA_V1
+    }
+
+    enum FeeType {
+        GAS_FEE,
+        PROTOCOL_FEE
+        // todo: PERFORMANCE_FEE
     }
 
     /// @notice Params for swapAndMint() function
@@ -168,7 +175,7 @@ abstract contract Common {
         bool unwrap;
     }
 
-    struct DecreaseAndCollectAndTakeFeesParams {
+    struct DecreaseAndCollectFeesParams {
         INonfungiblePositionManager nfpm;
         IERC20 token0;
         IERC20 token1;
@@ -178,7 +185,6 @@ abstract contract Common {
         uint256 token0Min; 
         uint256 token1Min;
         bool compoundFees;
-        uint64 feesX64;
     }
 
     // checks if required amounts are provided and are exact - wraps any provided ETH as WETH
@@ -480,7 +486,7 @@ abstract contract Common {
         }
     }
 
-    function _decreaseLiquidityAndCollectAndTakeFees(DecreaseAndCollectAndTakeFeesParams memory params) internal returns (uint256 amount0, uint256 amount1) {
+    function _decreaseLiquidityAndCollectFees(DecreaseAndCollectFeesParams memory params) internal returns (uint256 amount0, uint256 amount1) {
         (uint256 positionAmount0, uint256 positionAmount1) = _decreaseLiquidity(params.nfpm, params.tokenId, params.liquidity, params.deadline, params.token0Min, params.token1Min);
         (amount0, amount1) = params.nfpm.collect(
             univ3.INonfungiblePositionManager.CollectParams(
@@ -505,13 +511,6 @@ abstract contract Common {
             amount0 = positionAmount0;
             amount1 = positionAmount1;
         }
-        
-
-        if (params.feesX64 > 0) {
-            amount0 -= FullMath.mulDiv(amount0, params.feesX64, Q64);
-            amount1 -= FullMath.mulDiv(amount1, params.feesX64, Q64);
-        }
-
     }
 
     function _getWeth9(INonfungiblePositionManager nfpm, Protocol protocol) view internal returns (IWETH9 weth) {
