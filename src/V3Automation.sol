@@ -2,18 +2,19 @@
 pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/access/AccessControl.sol";
+import "@openzeppelin/contracts/utils/Pausable.sol";
 import "./Common.sol";
 import "forge-std/console.sol";
 
-contract V3Automation is AccessControl, Common {
+contract V3Automation is AccessControl, Pausable, Common {
 
     error SameRange();
     error LiquidityChanged();
     error SwapAmountTooLarge();
 
-    bytes32 public constant OWNER_ROLE = bytes32(uint256(0x00));
-    bytes32 public constant OPERATOR_ROLE = bytes32(uint256(0x01));
-    bytes32 public constant WITHDRAWER_ROLE = bytes32(uint256(0x02));
+    bytes32 public constant OWNER_ROLE = keccak256("OWNER_ROLE");
+    bytes32 public constant OPERATOR_ROLE = keccak256("OPERATOR_ROLE");
+    bytes32 public constant WITHDRAWER_ROLE = keccak256("WITHDRAWER_ROLE");
 
     constructor(address _swapRouter, address firstOwner) Common(_swapRouter) {
         _grantRole(OWNER_ROLE, firstOwner);
@@ -81,11 +82,11 @@ contract V3Automation is AccessControl, Common {
         uint256 amountAddMin1;
     }
 
-    function execute(ExecuteParams calldata params) public payable onlyRole(OPERATOR_ROLE) {
+    function execute(ExecuteParams calldata params) public payable onlyRole(OPERATOR_ROLE) whenNotPaused() {
         _execute(params);
     }
 
-    function executeWithPermit(ExecuteParams calldata params, uint8 v, bytes32 r, bytes32 s) public payable onlyRole(OPERATOR_ROLE) {
+    function executeWithPermit(ExecuteParams calldata params, uint8 v, bytes32 r, bytes32 s) public payable onlyRole(OPERATOR_ROLE) whenNotPaused() {
         params.nfpm.permit(address(this), params.tokenId, params.deadline, v, r, s);
         _execute(params);
     }
@@ -179,6 +180,14 @@ contract V3Automation is AccessControl, Common {
             revert NotSupportedAction();
         }
         params.nfpm.transferFrom(address(this), params.userAddress, params.tokenId);
+    }
+
+    function pause() public onlyRole(OWNER_ROLE) {
+        _pause();
+    }
+
+    function unpause() public onlyRole(OWNER_ROLE) {
+        _unpause();
     }
 
     /**
