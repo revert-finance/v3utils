@@ -1,25 +1,17 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.0;
 
-import "@openzeppelin/contracts/utils/Pausable.sol";
 import "./Common.sol";
-import "forge-std/console.sol";
 
 contract V3Automation is Pausable, Common {
 
     error SameRange();
     error LiquidityChanged();
-    error SwapAmountTooLarge();
 
-    bytes32 public constant OWNER_ROLE = keccak256("OWNER_ROLE");
     bytes32 public constant OPERATOR_ROLE = keccak256("OPERATOR_ROLE");
 
-    constructor(address _swapRouter, address firstOwner) Common(_swapRouter, firstOwner) {
-        if (firstOwner == address(0)) {
-            revert();
-        }
-        _grantRole(OWNER_ROLE, firstOwner);
-        _grantRole(OPERATOR_ROLE, firstOwner);
+    constructor(address _swapRouter, address admin, address withdrawer) Common(_swapRouter, admin, withdrawer) {
+        _grantRole(OPERATOR_ROLE, admin);
     }
 
     enum Action {
@@ -102,7 +94,7 @@ contract V3Automation is Pausable, Common {
         }
 
         (state.amount0, state.amount1) = _decreaseLiquidityAndCollectFees(DecreaseAndCollectFeesParams(params.nfpm, IERC20(state.token0), IERC20(state.token1), params.tokenId, params.liquidity, params.deadline, params.amountRemoveMin0, params.amountRemoveMin1, params.compoundFees));
-        
+
         // take fees
         {
             // take gas fees
@@ -180,14 +172,6 @@ contract V3Automation is Pausable, Common {
             revert NotSupportedAction();
         }
         params.nfpm.transferFrom(address(this), params.userAddress, params.tokenId);
-    }
-
-    function pause() public onlyRole(OWNER_ROLE) {
-        _pause();
-    }
-
-    function unpause() public onlyRole(OWNER_ROLE) {
-        _unpause();
     }
 
     receive() external payable{}

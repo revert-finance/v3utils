@@ -55,8 +55,8 @@ abstract contract IntegrationTestBase is Test {
         mainnetFork = vm.createFork("https://rpc.ankr.com/arbitrum", 171544977);
         vm.selectFork(mainnetFork);
 
-        v3utils = new V3Utils(KRYSTAL_ROUTER, TEST_OWNER_ACCOUNT);
-        v3automation = new V3Automation(KRYSTAL_ROUTER, TEST_OWNER_ACCOUNT);
+        v3utils = new V3Utils(KRYSTAL_ROUTER, TEST_OWNER_ACCOUNT, TEST_OWNER_ACCOUNT);
+        v3automation = new V3Automation(KRYSTAL_ROUTER, TEST_OWNER_ACCOUNT, TEST_OWNER_ACCOUNT);
     }
 
     function _writeTokenBalance(address who, address token, uint256 amt) internal {

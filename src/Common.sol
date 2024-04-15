@@ -6,6 +6,7 @@ import "v3-periphery/interfaces/INonfungiblePositionManager.sol" as univ3;
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "v3-core/libraries/FullMath.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
+import "@openzeppelin/contracts/utils/Pausable.sol";
 
 interface INonfungiblePositionManager is univ3.INonfungiblePositionManager {
     /// @notice mintParams for algebra v1
@@ -44,8 +45,9 @@ interface INonfungiblePositionManager is univ3.INonfungiblePositionManager {
     function WNativeToken() external view returns (address);
 }
 
-abstract contract Common is AccessControl {
+abstract contract Common is AccessControl, Pausable {
     bytes32 public constant WITHDRAWER_ROLE = keccak256("WITHDRAWER_ROLE");
+    bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
     uint256 internal constant Q64 = 2 ** 64;
     uint256 internal constant Q96 = 2 ** 96;
     
@@ -77,10 +79,11 @@ abstract contract Common is AccessControl {
 
 
     address public immutable swapRouter;
-    constructor(address router, address withdrawer) {
+    constructor(address router, address admin, address withdrawer) {
         if (withdrawer == address(0)) {
             revert();
         }
+        _grantRole(ADMIN_ROLE, admin);
         _grantRole(WITHDRAWER_ROLE, withdrawer);
         swapRouter = router;
     }
@@ -574,5 +577,13 @@ abstract contract Common is AccessControl {
         } else if (protocol == Protocol.ALGEBRA_V1) {
             (,, token0, token1, tickLower, tickUpper, liquidity,,,,) = abi.decode(data, (uint96,address,address,address,int24,int24,uint128,uint256,uint256,uint128,uint128));
         }
+    }
+
+    function pause() public onlyRole(ADMIN_ROLE) {
+        _pause();
+    }
+
+    function unpause() public onlyRole(ADMIN_ROLE) {
+        _unpause();
     }
 }

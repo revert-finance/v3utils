@@ -15,7 +15,7 @@ contract V3Utils is IERC721Receiver, Common {
     using SafeCast for uint256;
     /// @notice Constructor
     /// @param _swapRouter Krystal Exchange Proxy
-    constructor(address _swapRouter, address withdrawer) Common(_swapRouter, withdrawer) {}
+    constructor(address _swapRouter, address admin, address withdrawer) Common(_swapRouter, admin, withdrawer) {}
 
     /// @notice Action which should be executed on provided NFT
     enum WhatToDo {
@@ -87,7 +87,7 @@ contract V3Utils is IERC721Receiver, Common {
     /// @notice Execute instruction by pulling approved NFT instead of direct safeTransferFrom call from owner
     /// @param tokenId Token to process
     /// @param instructions Instructions to execute
-    function execute(INonfungiblePositionManager _nfpm, uint256 tokenId, Instructions calldata instructions) external
+    function execute(INonfungiblePositionManager _nfpm, uint256 tokenId, Instructions calldata instructions)  whenNotPaused() external
     {
         // must be approved beforehand
         _nfpm.safeTransferFrom(
@@ -100,7 +100,7 @@ contract V3Utils is IERC721Receiver, Common {
 
     /// @notice ERC721 callback function. Called on safeTransferFrom and does manipulation as configured in encoded Instructions parameter. 
     /// At the end the NFT (and any newly minted NFT) is returned to sender. The leftover tokens are sent to instructions.recipient.
-    function onERC721Received(address, address from, uint256 tokenId, bytes calldata data) external override returns (bytes4) {
+    function onERC721Received(address, address from, uint256 tokenId, bytes calldata data)  whenNotPaused() external override returns (bytes4) {
 
         INonfungiblePositionManager nfpm = INonfungiblePositionManager(msg.sender);
         // not allowed to send to itself
@@ -199,7 +199,7 @@ contract V3Utils is IERC721Receiver, Common {
     /// @param params Swap configuration
     /// If tokenIn is wrapped native token - both the token or the wrapped token can be sent (the sum of both must be equal to amountIn)
     /// Optionally unwraps any wrapped native token and returns native token instead
-    function swap(SwapParams calldata params) external payable returns (uint256 amountOut) {
+    function swap(SwapParams calldata params)  whenNotPaused() external payable returns (uint256 amountOut) {
 
         if (params.tokenIn == params.tokenOut) {
             revert SameToken();
@@ -225,7 +225,7 @@ contract V3Utils is IERC721Receiver, Common {
     /// @notice Does 1 or 2 swaps from swapSourceToken to token0 and token1 and adds as much as possible liquidity to a newly minted position.
     /// @param params Swap and mint configuration
     /// Newly minted NFT and leftover tokens are returned to recipient
-    function swapAndMint(SwapAndMintParams calldata params) external payable returns (uint256 tokenId, uint128 liquidity, uint256 amount0, uint256 amount1) {
+    function swapAndMint(SwapAndMintParams calldata params)  whenNotPaused() external payable returns (uint256 tokenId, uint128 liquidity, uint256 amount0, uint256 amount1) {
         if (params.token0 == params.token1) {
             revert SameToken();
         }
@@ -237,7 +237,7 @@ contract V3Utils is IERC721Receiver, Common {
     /// @notice Does 1 or 2 swaps from swapSourceToken to token0 and token1 and adds as much as possible liquidity to any existing position (no need to be position owner).
     /// @param params Swap and increase liquidity configuration
     // Sends any leftover tokens to recipient.
-    function swapAndIncreaseLiquidity(SwapAndIncreaseLiquidityParams calldata params) external payable returns (uint128 liquidity, uint256 amount0, uint256 amount1) {
+    function swapAndIncreaseLiquidity(SwapAndIncreaseLiquidityParams calldata params)  whenNotPaused() external payable returns (uint128 liquidity, uint256 amount0, uint256 amount1) {
         address owner = params.nfpm.ownerOf(params.tokenId);
         require(owner == msg.sender, "sender is not owner of position");
         (address token0,address token1,,,,) = _getPosition(params.nfpm, params.protocol, params.tokenId);

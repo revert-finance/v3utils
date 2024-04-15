@@ -5,20 +5,15 @@ import "forge-std/Script.sol";
 import "../src/V3Automation.sol";
 
 abstract contract CommonScript is Script {
-    uint256 deployerPrivateKey; 
     address krystalRouter;
+    address admin;
     address withdrawer;
+    bytes32 salt = keccak256("KRYSTAL_DEPLOYMENT_SALT");
+    address factory = 0x4e59b44847b379578588920cA78FbF26c0B4956C;
 
     constructor() {
-        deployerPrivateKey = vm.envUint("PRIVATE_KEY");
-
         krystalRouter = vm.envAddress("KRYSTAL_ROUTER");
-        if (krystalRouter == address(0)) {
-            revert();
-        }
+        withdrawer = vm.envAddress("ADMIN_ADDRESS");
         withdrawer = vm.envAddress("WITHDRAWER");
-        if (withdrawer == address(0)) {
-            revert();
-        }
     }
 }
