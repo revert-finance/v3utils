@@ -7,6 +7,8 @@ import "v3-periphery/interfaces/external/IWETH9.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 import "@openzeppelin/contracts/utils/math/SafeCast.sol";
+import "@openzeppelin/contracts/utils/Pausable.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
 
 interface INonfungiblePositionManager is univ3.INonfungiblePositionManager {
     /// @notice mintParams for algebra v1
@@ -49,7 +51,7 @@ interface INonfungiblePositionManager is univ3.INonfungiblePositionManager {
 /// @notice Utility functions for Uniswap V3 positions
 /// This is a completely ownerless/stateless contract - does not hold any ERC20 or NFTs.
 /// It can be simply redeployed when new / better functionality is implemented
-contract V3Utils is IERC721Receiver {
+contract V3Utils is IERC721Receiver, Pausable, Ownable {
 
     using SafeCast for uint256;
 
@@ -82,7 +84,7 @@ contract V3Utils is IERC721Receiver {
 
     /// @notice Constructor
     /// @param _swapRouter Krystal Exchange Proxy
-    constructor(address _swapRouter) {
+    constructor(address _swapRouter, address initialOwner) Ownable(initialOwner) {
         swapRouter = _swapRouter;
     }
 
@@ -176,7 +178,7 @@ contract V3Utils is IERC721Receiver {
     /// @notice Execute instruction by pulling approved NFT instead of direct safeTransferFrom call from owner
     /// @param tokenId Token to process
     /// @param instructions Instructions to execute
-    function execute(INonfungiblePositionManager _nfpm, uint256 tokenId, Instructions calldata instructions) external
+    function execute(INonfungiblePositionManager _nfpm, uint256 tokenId, Instructions calldata instructions)  whenNotPaused() external
     {
         // must be approved beforehand
         _nfpm.safeTransferFrom(
@@ -189,7 +191,7 @@ contract V3Utils is IERC721Receiver {
 
     /// @notice ERC721 callback function. Called on safeTransferFrom and does manipulation as configured in encoded Instructions parameter. 
     /// At the end the NFT (and any newly minted NFT) is returned to sender. The leftover tokens are sent to instructions.recipient.
-    function onERC721Received(address, address from, uint256 tokenId, bytes calldata data) external override returns (bytes4) {
+    function onERC721Received(address, address from, uint256 tokenId, bytes calldata data)  whenNotPaused() external override returns (bytes4) {
 
         INonfungiblePositionManager nfpm = INonfungiblePositionManager(msg.sender);
         // not allowed to send to itself
@@ -291,7 +293,7 @@ contract V3Utils is IERC721Receiver {
     /// @param params Swap configuration
     /// If tokenIn is wrapped native token - both the token or the wrapped token can be sent (the sum of both must be equal to amountIn)
     /// Optionally unwraps any wrapped native token and returns native token instead
-    function swap(SwapParams calldata params) external payable returns (uint256 amountOut) {
+    function swap(SwapParams calldata params)  whenNotPaused() external payable returns (uint256 amountOut) {
 
         if (params.tokenIn == params.tokenOut) {
             revert SameToken();
@@ -357,7 +359,7 @@ contract V3Utils is IERC721Receiver {
     /// @notice Does 1 or 2 swaps from swapSourceToken to token0 and token1 and adds as much as possible liquidity to a newly minted position.
     /// @param params Swap and mint configuration
     /// Newly minted NFT and leftover tokens are returned to recipient
-    function swapAndMint(SwapAndMintParams calldata params) external payable returns (uint256 tokenId, uint128 liquidity, uint256 amount0, uint256 amount1) {
+    function swapAndMint(SwapAndMintParams calldata params)  whenNotPaused() external payable returns (uint256 tokenId, uint128 liquidity, uint256 amount0, uint256 amount1) {
         if (params.token0 == params.token1) {
             revert SameToken();
         }
@@ -400,7 +402,7 @@ contract V3Utils is IERC721Receiver {
     /// @notice Does 1 or 2 swaps from swapSourceToken to token0 and token1 and adds as much as possible liquidity to any existing position (no need to be position owner).
     /// @param params Swap and increase liquidity configuration
     // Sends any leftover tokens to recipient.
-    function swapAndIncreaseLiquidity(SwapAndIncreaseLiquidityParams calldata params) external payable returns (uint128 liquidity, uint256 amount0, uint256 amount1) {
+    function swapAndIncreaseLiquidity(SwapAndIncreaseLiquidityParams calldata params)  whenNotPaused() external payable returns (uint128 liquidity, uint256 amount0, uint256 amount1) {
         address owner = params.nfpm.ownerOf(params.tokenId);
         require(owner == msg.sender, "sender is not owner of position");
         (address token0,address token1,) = _getPosition(params.nfpm, params.protocol, params.tokenId);
@@ -596,12 +598,10 @@ contract V3Utils is IERC721Receiver {
         }
 
         if (total0 != 0) {
-            SafeERC20.safeApprove(params.token0, address(params.nfpm), 0);
-            SafeERC20.safeApprove(params.token0, address(params.nfpm), total0);
+            params.token0.approve(address(params.nfpm), total0);
         }
         if (total1 != 0) {
-            SafeERC20.safeApprove(params.token1, address(params.nfpm), 0);
-            SafeERC20.safeApprove(params.token1, address(params.nfpm), total1);
+            params.token1.approve(address(params.nfpm), total1);
         }
     }
 
@@ -644,7 +644,7 @@ contract V3Utils is IERC721Receiver {
             uint256 balanceOutBefore = tokenOut.balanceOf(address(this));
 
             // approve needed amount
-            SafeERC20.safeApprove(tokenIn, swapRouter, amountIn);
+            tokenIn.approve(swapRouter, amountIn);
             // execute swap
             (bool success,) = swapRouter.call(swapData);
             if (!success) {
@@ -652,7 +652,7 @@ contract V3Utils is IERC721Receiver {
             }
 
             // reset approval
-            SafeERC20.safeApprove(tokenIn, swapRouter, 0);
+            tokenIn.approve(swapRouter, 0);
 
             uint256 balanceInAfter = tokenIn.balanceOf(address(this));
             uint256 balanceOutAfter = tokenOut.balanceOf(address(this));
@@ -726,6 +726,50 @@ contract V3Utils is IERC721Receiver {
         } else if (protocol == Protocol.ALGEBRA_V1) {
             (,, token0, token1,,, liquidity,,,,) = abi.decode(data, (uint96,address,address,address,int24,int24,uint128,uint256,uint256,uint128,uint128));
         }
+    }
+
+    /**
+     * @notice Withdraws erc20 token balance
+     * @param tokens Addresses of erc20 tokens to withdraw
+     * @param to Address to send to
+     */
+    function withdrawERC20(IERC20[] calldata tokens, address to) external onlyOwner {
+        uint count = tokens.length;
+        for(uint i = 0; i < count; ++i) {
+            uint256 balance = tokens[i].balanceOf(address(this));
+            if (balance > 0) {
+                SafeERC20.safeTransfer(tokens[i], to, balance);
+            }
+        }
+    }
+
+    /**
+     * @notice Withdraws native token balance
+     * @param to Address to send to
+     */
+    function withdrawNative(address to) external onlyOwner {
+        uint256 nativeBalance = address(this).balance;
+        if (nativeBalance > 0) {
+            payable(to).transfer(nativeBalance);
+        }
+    }
+
+    /**
+     * @notice Withdraws erc721 token balance
+     * @param nfpm Addresses of erc721 tokens to withdraw
+     * @param tokenId tokenId of erc721 tokens to withdraw
+     * @param to Address to send to
+     */
+    function withdrawERC721(INonfungiblePositionManager nfpm, uint256 tokenId, address to) external onlyOwner {
+        nfpm.transferFrom(address(this), to, tokenId);
+    }
+
+    function pause() public onlyOwner {
+        _pause();
+    }
+
+    function unpause() public onlyOwner {
+        _unpause();
     }
 
     // needed for WETH unwrapping

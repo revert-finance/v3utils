@@ -39,66 +39,16 @@ bytes32 internal constant POOL_INIT_CODE_HASH = 0xe34f199b19b2b4f47f68442619d555
 # Deploy
 ```
 source .env
+forge script script/V3Utils.s.sol:MyScript --legacy --rpc-url $RPC_URL --broadcast
 ```
-Ethereum
+using `--with-gas-price` flag to sepecify gas price:
 ```
-forge script script/V3Utils.s.sol:MyScript --legacy --with-gas-price 52000000000 --rpc-url $ETHEREUM_RPC_URL --broadcast
-```
-
-Polygon
-```
-forge script script/V3Utils.s.sol:MyScript --legacy --with-gas-price 80000000000 --rpc-url $POLYGON_RPC_URL --broadcast
-```
-
-Arbitrum
-```
-forge script script/V3Utils.s.sol:MyScript --legacy --with-gas-price 100000000 --rpc-url $ARBITRUM_RPC_URL --broadcast
-```
-
-Bsc
-```
-forge script script/V3Utils.s.sol:MyScript --rpc-url $BSC_RPC_URL --broadcast
-```
-
-Optimism
-```
-forge script script/V3Utils.s.sol:MyScript --legacy --with-gas-price 100000000 --rpc-url $OPTIMISM_RPC_URL --broadcast
-```
-
-Base
-```
-forge script script/V3Utils.s.sol:MyScript --legacy --with-gas-price 2800000 --rpc-url $BASE_RPC_URL --broadcast
+forge script script/V3Utils.s.sol:MyScript --legacy --rpc-url $RPC_URL --broadcast --with-gas-price $GAS_PRICE
 ```
 
 # Verify Contract
 
-Ethereum
+Run script below to get verify contract script
 ```
-forge verify-contract 0xfaacd9f7e68bb36c1029ab87d1d7325919e67cc0 src/V3Utils.sol:V3Utils --constructor-args $(cast abi-encode "constructor(address)" "0x70270C228c5B4279d1578799926873aa72446CcD")
+forge script script/ComputeAddress.s.sol:ComputeAddressScript
 ```
-
-Polygon
-```
-forge verify-contract --chain-id 137 --etherscan-api-key $POLYGONSCAN_API_KEY --verifier-url https://api.polygonscan.com/api/ 0xC1De096310E565b94e88DB80C0037597bcD7b46c src/V3Utils.sol:V3Utils --constructor-args $(cast abi-encode "constructor(address)" "0x70270C228c5B4279d1578799926873aa72446CcD")
-```
-
-Arbitrum
-```
-forge verify-contract --chain-id 42161 --etherscan-api-key $ARBISCAN_API_KEY --verifier-url https://api.arbiscan.io/api/ 0x1e976e2BFEDE112174B23Aaf8BdB762d608a4dAD src/V3Utils.sol:V3Utils --constructor-args $(cast abi-encode "constructor(address)" "0x864F01c5E46b0712643B956BcA607bF883e0dbC5")
-```
-
-Bsc
-```
-forge verify-contract --chain-id 56 --etherscan-api-key $BSCSCAN_API_KEY --verifier-url https://api.bscscan.com/api/ 0x751271ceb69C48bb7dB9BE16171f3EbD86c12ae2 src/V3Utils.sol:V3Utils --constructor-args $(cast abi-encode "constructor(address)" "0x051DC16b2ECB366984d1074dCC07c342a9463999")
-```
-
-Optimism
-```
-forge verify-contract --chain-id 10 --etherscan-api-key $OPTIMISMSCAN_API_KEY --verifier-url https://api-optimistic.etherscan.io/api/ 0xD475bF392Cc10cB17990e15500B808b7b7e7471C src/V3Utils.sol:V3Utils --constructor-args $(cast abi-encode "constructor(address)" "0xf6f2dafa542FefAae22187632Ef30D2dAa252b4e")
-```
-
-Base
-```
-forge verify-contract --chain-id 8453 --etherscan-api-key $BASESCAN_API_KEY --verifier-url https://api.basescan.org/api/ 0x5b2738F74b0d7bb37D069189c8464061d41D6ED0 src/V3Utils.sol:V3Utils --constructor-args $(cast abi-encode "constructor(address)" "0x6fD481970744F9Bc0044a81859FD92431a2Dd67D")
-```
-

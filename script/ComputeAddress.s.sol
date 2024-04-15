@@ -5,24 +5,13 @@ import "@openzeppelin/contracts/utils/Create2.sol";
 import "forge-std/Script.sol";
 import "../src/V3Utils.sol";
 
-
-contract MyScript is Script {
+contract ComputeAddressScript is Script {
     bytes32 salt = keccak256("KRYSTAL_DEPLOYMENT_SALT");
     address factory = 0x4e59b44847b379578588920cA78FbF26c0B4956C;
-
     function run() external {
-        uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
         address initOwner = vm.envAddress("OWNER");
         address krystalRouter = vm.envAddress("KRYSTAL_ROUTER");
-
-        vm.startBroadcast(deployerPrivateKey);
-
-        V3Utils v3Utils = new V3Utils{
-            salt: salt
-        }(krystalRouter, initOwner);
-
-        vm.stopBroadcast();
-
+        console.log("OWNER: ", initOwner, " KRYSTAL_ROUTER: ", krystalRouter);
         address deploymentAddress = Create2.computeAddress(
             salt,
             keccak256(
