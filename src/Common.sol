@@ -5,6 +5,7 @@ import "v3-periphery/interfaces/external/IWETH9.sol";
 import "v3-periphery/interfaces/INonfungiblePositionManager.sol" as univ3;
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "v3-core/libraries/FullMath.sol";
+import "@openzeppelin/contracts/access/AccessControl.sol";
 
 interface INonfungiblePositionManager is univ3.INonfungiblePositionManager {
     /// @notice mintParams for algebra v1
@@ -43,8 +44,8 @@ interface INonfungiblePositionManager is univ3.INonfungiblePositionManager {
     function WNativeToken() external view returns (address);
 }
 
-abstract contract Common {
-
+abstract contract Common is AccessControl {
+    bytes32 public constant WITHDRAWER_ROLE = keccak256("WITHDRAWER_ROLE");
     uint256 internal constant Q64 = 2 ** 64;
     uint256 internal constant Q96 = 2 ** 96;
     
@@ -76,7 +77,11 @@ abstract contract Common {
 
 
     address public immutable swapRouter;
-    constructor(address router) {
+    constructor(address router, address withdrawer) {
+        if (withdrawer == address(0)) {
+            revert();
+        }
+        _grantRole(WITHDRAWER_ROLE, withdrawer);
         swapRouter = router;
     }
 
@@ -185,6 +190,42 @@ abstract contract Common {
         uint256 token0Min; 
         uint256 token1Min;
         bool compoundFees;
+    }
+
+    /**
+     * @notice Withdraws erc20 token balance
+     * @param tokens Addresses of erc20 tokens to withdraw
+     * @param to Address to send to
+     */
+    function withdrawERC20(IERC20[] calldata tokens, address to) external onlyRole(WITHDRAWER_ROLE) {
+        uint count = tokens.length;
+        for(uint i = 0; i < count; ++i) {
+            uint256 balance = tokens[i].balanceOf(address(this));
+            if (balance > 0) {
+                SafeERC20.safeTransfer(tokens[i], to, balance);
+            }
+        }
+    }
+
+    /**
+     * @notice Withdraws native token balance
+     * @param to Address to send to
+     */
+    function withdrawNative(address to) external onlyRole(WITHDRAWER_ROLE) {
+        uint256 nativeBalance = address(this).balance;
+        if (nativeBalance > 0) {
+            payable(to).transfer(nativeBalance);
+        }
+    }
+
+    /**
+     * @notice Withdraws erc721 token balance
+     * @param nfpm Addresses of erc721 tokens to withdraw
+     * @param tokenId tokenId of erc721 tokens to withdraw
+     * @param to Address to send to
+     */
+    function withdrawERC721(INonfungiblePositionManager nfpm, uint256 tokenId, address to) external onlyRole(WITHDRAWER_ROLE) {
+        nfpm.transferFrom(address(this), to, tokenId);
     }
 
     // checks if required amounts are provided and are exact - wraps any provided ETH as WETH

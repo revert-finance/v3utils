@@ -15,7 +15,7 @@ contract V3Utils is IERC721Receiver, Common {
     using SafeCast for uint256;
     /// @notice Constructor
     /// @param _swapRouter Krystal Exchange Proxy
-    constructor(address _swapRouter) Common(_swapRouter) {}
+    constructor(address _swapRouter, address withdrawer) Common(_swapRouter, withdrawer) {}
 
     /// @notice Action which should be executed on provided NFT
     enum WhatToDo {

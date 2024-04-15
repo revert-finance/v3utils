@@ -1,12 +1,11 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.0;
 
-import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
 import "./Common.sol";
 import "forge-std/console.sol";
 
-contract V3Automation is AccessControl, Pausable, Common {
+contract V3Automation is Pausable, Common {
 
     error SameRange();
     error LiquidityChanged();
@@ -14,12 +13,13 @@ contract V3Automation is AccessControl, Pausable, Common {
 
     bytes32 public constant OWNER_ROLE = keccak256("OWNER_ROLE");
     bytes32 public constant OPERATOR_ROLE = keccak256("OPERATOR_ROLE");
-    bytes32 public constant WITHDRAWER_ROLE = keccak256("WITHDRAWER_ROLE");
 
-    constructor(address _swapRouter, address firstOwner) Common(_swapRouter) {
+    constructor(address _swapRouter, address firstOwner) Common(_swapRouter, firstOwner) {
+        if (firstOwner == address(0)) {
+            revert();
+        }
         _grantRole(OWNER_ROLE, firstOwner);
         _grantRole(OPERATOR_ROLE, firstOwner);
-        _grantRole(WITHDRAWER_ROLE, firstOwner);
     }
 
     enum Action {
@@ -188,26 +188,6 @@ contract V3Automation is AccessControl, Pausable, Common {
 
     function unpause() public onlyRole(OWNER_ROLE) {
         _unpause();
-    }
-
-    /**
-     * @notice Withdraws token balance
-     * @param tokens Addresses of tokens to withdraw
-     * @param to Address to send to
-     */
-    function withdrawBalances(address[] calldata tokens, address to) onlyRole(WITHDRAWER_ROLE) external {
-        uint256 nativeBalance = address(this).balance;
-        if (nativeBalance > 0) {
-            payable(to).transfer(nativeBalance);
-        }
-        uint i;
-        uint count = tokens.length;
-        for(;i < count;++i) {
-            uint256 balance = IERC20(tokens[i]).balanceOf(address(this));
-            if (balance > 0) {
-                _transferToken(IWETH9(address(0)), to, IERC20(tokens[i]), balance, true);
-            }
-        }
     }
 
     receive() external payable{}
