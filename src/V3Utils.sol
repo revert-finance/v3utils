@@ -596,12 +596,10 @@ contract V3Utils is IERC721Receiver {
         }
 
         if (total0 != 0) {
-            SafeERC20.safeApprove(params.token0, address(params.nfpm), 0);
-            SafeERC20.safeApprove(params.token0, address(params.nfpm), total0);
+            params.token0.approve(address(params.nfpm), total0);
         }
         if (total1 != 0) {
-            SafeERC20.safeApprove(params.token1, address(params.nfpm), 0);
-            SafeERC20.safeApprove(params.token1, address(params.nfpm), total1);
+            params.token1.approve(address(params.nfpm), total1);
         }
     }
 
@@ -644,7 +642,7 @@ contract V3Utils is IERC721Receiver {
             uint256 balanceOutBefore = tokenOut.balanceOf(address(this));
 
             // approve needed amount
-            SafeERC20.safeApprove(tokenIn, swapRouter, amountIn);
+            tokenIn.approve(swapRouter, amountIn);
             // execute swap
             (bool success,) = swapRouter.call(swapData);
             if (!success) {
@@ -652,7 +650,7 @@ contract V3Utils is IERC721Receiver {
             }
 
             // reset approval
-            SafeERC20.safeApprove(tokenIn, swapRouter, 0);
+            tokenIn.approve(swapRouter, 0);
 
             uint256 balanceInAfter = tokenIn.balanceOf(address(this));
             uint256 balanceOutAfter = tokenOut.balanceOf(address(this));

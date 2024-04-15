@@ -6,10 +6,6 @@
 	path = lib/v3-periphery
 	url = https://github.com/Uniswap/v3-periphery
 	branch = b325bb0905d922ae61fcc7df85ee802e8df5e96c
-[submodule "lib/openzeppelin-contracts"]
-	path = lib/openzeppelin-contracts
-	url = https://github.com/OpenZeppelin/openzeppelin-contracts
-	branch = v4.8.1
 [submodule "lib/forge-std"]
 	path = lib/forge-std
 	url = https://github.com/foundry-rs/forge-std
@@ -17,3 +13,6 @@
 [submodule "lib/AlgebraV1"]
 	path = lib/AlgebraV1
 	url = https://github.com/cryptoalgebra/AlgebraV1
+[submodule "lib/openzeppelin-contracts"]
+	path = lib/openzeppelin-contracts
+	url = https://github.com/OpenZeppelin/openzeppelin-contracts
