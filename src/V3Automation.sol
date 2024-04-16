@@ -99,6 +99,9 @@ contract V3Automation is Pausable, Common {
         {
             // take gas fees
             if (params.gasFeeX64 > 0) {
+                if (params.gasFeeX64 > _maxFeeX64[FeeType.GAS_FEE]) {
+                    revert TooMuchFee();
+                }
                 uint256 feeAmount0 = FullMath.mulDiv(state.amount0, params.gasFeeX64, Q64);
                 uint256 feeAmount1 = FullMath.mulDiv(state.amount1, params.gasFeeX64, Q64);
                 emit TakeFees(address(params.nfpm) ,params.tokenId, params.userAddress, state.token0, state.token1, state.amount0, state.amount1, feeAmount0, feeAmount1, params.gasFeeX64, FeeType.GAS_FEE);
@@ -109,6 +112,9 @@ contract V3Automation is Pausable, Common {
 
             // take protocol fees
             if (params.protocolFeeX64 > 0) {
+                if (params.protocolFeeX64 > _maxFeeX64[FeeType.PROTOCOL_FEE]) {
+                    revert TooMuchFee();
+                }
                 uint256 feeAmount0 = FullMath.mulDiv(state.amount0, params.protocolFeeX64, Q64);
                 uint256 feeAmount1 = FullMath.mulDiv(state.amount1, params.protocolFeeX64, Q64);
                 emit TakeFees(address(params.nfpm), params.tokenId, params.userAddress, state.token0, state.token1, state.amount0, state.amount1, feeAmount0, feeAmount1, params.protocolFeeX64, FeeType.PROTOCOL_FEE);

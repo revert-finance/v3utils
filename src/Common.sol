@@ -67,6 +67,7 @@ abstract contract Common is AccessControl, Pausable {
     error TooMuchEtherSent();
     error NoEtherToken();
     error NotWETH();
+    error TooMuchFee();
 
     // events
     event CompoundFees(uint256 indexed tokenId, uint128 liquidity, uint256 amount0, uint256 amount1);
@@ -79,6 +80,7 @@ abstract contract Common is AccessControl, Pausable {
 
 
     address public immutable swapRouter;
+    mapping (FeeType=>uint64) _maxFeeX64;
     constructor(address router, address admin, address withdrawer) {
         if (withdrawer == address(0)) {
             revert();
@@ -86,6 +88,8 @@ abstract contract Common is AccessControl, Pausable {
         _grantRole(ADMIN_ROLE, admin);
         _grantRole(WITHDRAWER_ROLE, withdrawer);
         swapRouter = router;
+        _maxFeeX64[FeeType.GAS_FEE] = 1844674407370955264; // 10%
+        _maxFeeX64[FeeType.PROTOCOL_FEE] = 1844674407370955264; // 10%
     }
 
     /// @notice protocol to provide lp
@@ -585,5 +589,13 @@ abstract contract Common is AccessControl, Pausable {
 
     function unpause() public onlyRole(ADMIN_ROLE) {
         _unpause();
+    }
+
+    function setMaxFeeX64(FeeType feeType, uint64 feex64) external onlyRole(ADMIN_ROLE) {
+        _maxFeeX64[feeType] = feex64;
+    }
+
+    function getMaxFeeX64(FeeType feeType) public view returns (uint64) {
+        return _maxFeeX64[feeType];
     }
 }
