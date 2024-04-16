@@ -7,7 +7,7 @@ import "../src/V3Automation.sol";
 import "./Common.s.sol";
 
 contract VerifyV3UtilsScript is CommonScript {
-    function run() external {
+    function run() view external {
         address deploymentAddress = Create2.computeAddress(
             salt,
             keccak256(
@@ -25,7 +25,7 @@ contract VerifyV3UtilsScript is CommonScript {
 }
 
 contract VerifyV3AutomationScript is CommonScript {
-    function run() external {
+    function run() view external {
         address deploymentAddress = Create2.computeAddress(
             salt,
             keccak256(

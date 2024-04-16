@@ -1,4 +1,3 @@
-.PHONY = build test V3Automation V3Utils
 ifneq (,$(wildcard ./.env))
     include .env
     export
@@ -8,11 +7,15 @@ build: src/V3Utils.sol
 	forge build
 test: src/V3Utils.sol test/*
 	forge test
-deploy-v3utils: 
-	forge script script/V3Utils.s.sol:V3UtilsScript --rpc-url $(RPC_URL) --broadcast
-deploy-v3auto:
-	forge script script/V3Automation.s.sol:V3AutomationScript --rpc-url $(RPC_URL) --legacy --broadcast
+v3utils:
+	$(eval CONTRACT=V3Utils)
+v3automation:
+	$(eval CONTRACT=V3Automation)
+deploy-v3utils:
+deploy-v3automation:
+deploy-%: %
+	forge script script/$(CONTRACT).s.sol:$(CONTRACT)Script --rpc-url $(RPC_URL) --broadcast
 verify-v3utils:
-	forge script script/Verify.s.sol:VerifyV3UtilsScript 
 verify-v3automation:
-	forge script script/Verify.s.sol:VerifyV3AutomationScript 
+verify-%: %
+	forge script script/Verify.s.sol:Verify$(CONTRACT)Script

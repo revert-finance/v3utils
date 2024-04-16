@@ -128,7 +128,7 @@ contract V3Utils is IERC721Receiver, Common {
                 // no swap is done here
                 (liquidity,amount0, amount1) = _swapAndIncrease(SwapAndIncreaseLiquidityParams(instructions.protocol, nfpm, tokenId, amount0, amount1, instructions.recipient, instructions.deadline, IERC20(address(0)), 0, 0, "", 0, 0, "", instructions.amountAddMin0, instructions.amountAddMin1), IERC20(token0), IERC20(token1), instructions.unwrap);
             }
-            emit CompoundFees(tokenId, liquidity, amount0, amount1);            
+            emit CompoundFees(address(nfpm), tokenId, liquidity, amount0, amount1);            
         } else if (instructions.whatToDo == WhatToDo.CHANGE_RANGE) {
 
             uint256 newTokenId;
@@ -172,7 +172,7 @@ contract V3Utils is IERC721Receiver, Common {
                 _transferToken(weth, instructions.recipient, IERC20(instructions.targetToken), targetAmount, instructions.unwrap);
             }
 
-            emit WithdrawAndCollectAndSwap(tokenId, instructions.targetToken, targetAmount);
+            emit WithdrawAndCollectAndSwap(address(nfpm), tokenId, instructions.targetToken, targetAmount);
         } else {
             revert NotSupportedWhatToDo();
         }

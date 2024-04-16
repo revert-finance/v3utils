@@ -70,13 +70,13 @@ abstract contract Common is AccessControl, Pausable {
     error TooMuchFee();
 
     // events
-    event CompoundFees(uint256 indexed tokenId, uint128 liquidity, uint256 amount0, uint256 amount1);
+    event CompoundFees(address indexed nfpm, uint256 indexed tokenId, uint128 liquidity, uint256 amount0, uint256 amount1);
     event TakeFees(address indexed nfpm, uint256 indexed tokenId, address indexed userAddress, address token0, address token1, uint256 amount0, uint256 amount1, uint256 feeAmount0, uint256 feeAmount1, uint64 feeX64, FeeType feeType);
     event ChangeRange(address indexed nfpm, uint256 indexed tokenId, uint256 newTokenId, uint256 newLiquidity, uint256 token0Added, uint256 token1Added);
-    event WithdrawAndCollectAndSwap(uint256 indexed tokenId, address token, uint256 amount);
+    event WithdrawAndCollectAndSwap(address indexed nfpm, uint256 indexed tokenId, address token, uint256 amount);
     event Swap(address indexed tokenIn, address indexed tokenOut, uint256 amountIn, uint256 amountOut);
-    event SwapAndMint(uint256 indexed tokenId, uint128 liquidity, uint256 amount0, uint256 amount1);
-    event SwapAndIncreaseLiquidity(uint256 indexed tokenId, uint128 liquidity, uint256 amount0, uint256 amount1);
+    event SwapAndMint(address indexed nfpm, uint256 indexed tokenId, uint128 liquidity, uint256 amount0, uint256 amount1);
+    event SwapAndIncreaseLiquidity(address indexed nfpm, uint256 indexed tokenId, uint128 liquidity, uint256 amount0, uint256 amount1);
 
 
     address public immutable swapRouter;
@@ -333,7 +333,7 @@ abstract contract Common is AccessControl, Pausable {
             revert("Invalid protocol");
         }
         params.nfpm.safeTransferFrom(address(this), params.recipient, tokenId, params.returnData);
-        emit SwapAndMint(tokenId, liquidity, added0, added1);
+        emit SwapAndMint(address(params.nfpm), tokenId, liquidity, added0, added1);
 
         _returnLeftoverTokens(ReturnLeftoverTokensParams(weth, params.recipient, params.token0, params.token1, total0, total1, added0, added1, unwrap));
     }
@@ -389,7 +389,7 @@ abstract contract Common is AccessControl, Pausable {
 
         (liquidity, added0, added1) = params.nfpm.increaseLiquidity(increaseLiquidityParams);
 
-        emit SwapAndIncreaseLiquidity(params.tokenId, liquidity, added0, added1);
+        emit SwapAndIncreaseLiquidity(address(params.nfpm), params.tokenId, liquidity, added0, added1);
         IWETH9 weth = _getWeth9(params.nfpm, params.protocol);
         _returnLeftoverTokens(ReturnLeftoverTokensParams(weth, params.recipient, token0, token1, total0, total1, added0, added1, unwrap));
     }
