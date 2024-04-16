@@ -12,6 +12,6 @@ deploy-v3utils:
 deploy-v3auto:
 	forge script script/V3Automation.s.sol:V3AutomationScript --rpc-url $(RPC_URL) --legacy --broadcast
 verify-v3utils:
-	forge script script/Verify.s.sol:VerifyV3UtilsScript 
+	forge script script/ComputeAddress.s.sol:VerifyV3UtilsScript 
 verify-v3automation:
-	forge script script/Verify.s.sol:VerifyV3AutomationScript 
+	forge script script/ComputeAddress.s.sol:ComputeAddressScript 
