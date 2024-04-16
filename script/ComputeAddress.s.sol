@@ -9,9 +9,9 @@ contract ComputeAddressScript is Script {
     bytes32 salt = keccak256("KRYSTAL_DEPLOYMENT_SALT");
     address factory = 0x4e59b44847b379578588920cA78FbF26c0B4956C;
     function run() external {
-        address initOwner = vm.envAddress("OWNER");
+        address initOwner = vm.envAddress("WITHDRAWER");
         address krystalRouter = vm.envAddress("KRYSTAL_ROUTER");
-        console.log("OWNER: ", initOwner, " KRYSTAL_ROUTER: ", krystalRouter);
+        console.log("WITHDRAWER: ", initOwner, " KRYSTAL_ROUTER: ", krystalRouter);
         address deploymentAddress = Create2.computeAddress(
             salt,
             keccak256(
