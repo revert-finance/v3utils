@@ -75,12 +75,12 @@ contract V3Utils is IERC721Receiver, Pausable, Ownable {
     error NotWETH();
 
     // events
-    event CompoundFees(uint256 indexed tokenId, uint128 liquidity, uint256 amount0, uint256 amount1);
-    event ChangeRange(uint256 indexed tokenId, uint256 newTokenId);
-    event WithdrawAndCollectAndSwap(uint256 indexed tokenId, address token, uint256 amount);
+    event CompoundFees(address indexed nfpm, uint256 indexed tokenId, uint128 liquidity, uint256 amount0, uint256 amount1);
+    event ChangeRange(address indexed nfpm, uint256 indexed tokenId, uint256 newTokenId);
+    event WithdrawAndCollectAndSwap(address indexed nfpm, uint256 indexed tokenId, address token, uint256 amount);
     event Swap(address indexed tokenIn, address indexed tokenOut, uint256 amountIn, uint256 amountOut);
-    event SwapAndMint(uint256 indexed tokenId, uint128 liquidity, uint256 amount0, uint256 amount1);
-    event SwapAndIncreaseLiquidity(uint256 indexed tokenId, uint128 liquidity, uint256 amount0, uint256 amount1);
+    event SwapAndMint(address indexed nfpm, uint256 indexed tokenId, uint128 liquidity, uint256 amount0, uint256 amount1);
+    event SwapAndIncreaseLiquidity(address indexed nfpm, uint256 indexed tokenId, uint128 liquidity, uint256 amount0, uint256 amount1);
 
     /// @notice Constructor
     /// @param _swapRouter Krystal Exchange Proxy
@@ -224,7 +224,7 @@ contract V3Utils is IERC721Receiver, Pausable, Ownable {
                 // no swap is done here
                 (liquidity,amount0, amount1) = _swapAndIncrease(SwapAndIncreaseLiquidityParams(instructions.protocol, nfpm, tokenId, amount0, amount1, instructions.recipient, instructions.deadline, IERC20(address(0)), 0, 0, "", 0, 0, "", instructions.amountAddMin0, instructions.amountAddMin1), IERC20(token0), IERC20(token1), instructions.unwrap);
             }
-            emit CompoundFees(tokenId, liquidity, amount0, amount1);            
+            emit CompoundFees(address(nfpm), tokenId, liquidity, amount0, amount1);            
         } else if (instructions.whatToDo == WhatToDo.CHANGE_RANGE) {
 
             uint256 newTokenId;
@@ -238,7 +238,7 @@ contract V3Utils is IERC721Receiver, Pausable, Ownable {
                 (newTokenId,,,) = _swapAndMint(SwapAndMintParams(instructions.protocol, nfpm, IERC20(token0), IERC20(token1), instructions.fee, instructions.tickLower, instructions.tickUpper, amount0, amount1, instructions.recipient, instructions.recipientNFT, instructions.deadline, IERC20(address(0)), 0, 0, "", 0, 0, "", instructions.amountAddMin0, instructions.amountAddMin1, instructions.swapAndMintReturnData), instructions.unwrap);
             }
 
-            emit ChangeRange(tokenId, newTokenId);
+            emit ChangeRange(address(nfpm), tokenId, newTokenId);
         } else if (instructions.whatToDo == WhatToDo.WITHDRAW_AND_COLLECT_AND_SWAP) {
             IWETH9 weth = _getWeth9(nfpm, instructions.protocol);
             uint256 targetAmount;
@@ -266,7 +266,7 @@ contract V3Utils is IERC721Receiver, Pausable, Ownable {
                 _transferToken(weth, instructions.recipient, IERC20(instructions.targetToken), targetAmount, instructions.unwrap);
             }
 
-            emit WithdrawAndCollectAndSwap(tokenId, instructions.targetToken, targetAmount);
+            emit WithdrawAndCollectAndSwap(address(nfpm), tokenId, instructions.targetToken, targetAmount);
         } else {
             revert NotSupportedWhatToDo();
         }
@@ -486,7 +486,7 @@ contract V3Utils is IERC721Receiver, Pausable, Ownable {
             revert("Invalid protocol");
         }
         params.nfpm.safeTransferFrom(address(this), params.recipientNFT, tokenId, params.returnData);
-        emit SwapAndMint(tokenId, liquidity, added0, added1);
+        emit SwapAndMint(address(params.nfpm), tokenId, liquidity, added0, added1);
 
         _returnLeftoverTokens(ReturnLeftoverTokensParams(weth, params.recipient, params.token0, params.token1, total0, total1, added0, added1, unwrap));
     }
@@ -557,7 +557,7 @@ contract V3Utils is IERC721Receiver, Pausable, Ownable {
 
         (liquidity, added0, added1) = params.nfpm.increaseLiquidity(increaseLiquidityParams);
 
-        emit SwapAndIncreaseLiquidity(params.tokenId, liquidity, added0, added1);
+        emit SwapAndIncreaseLiquidity(address(params.nfpm), params.tokenId, liquidity, added0, added1);
         IWETH9 weth = _getWeth9(params.nfpm, params.protocol);
         _returnLeftoverTokens(ReturnLeftoverTokensParams(weth, params.recipient, token0, token1, total0, total1, added0, added1, unwrap));
     }

@@ -5,13 +5,13 @@ import "@openzeppelin/contracts/utils/Create2.sol";
 import "forge-std/Script.sol";
 import "../src/V3Utils.sol";
 
-contract ComputeAddressScript is Script {
+contract VerifyV3UtilsScript is Script {
     bytes32 salt = keccak256("KRYSTAL_DEPLOYMENT_SALT");
     address factory = 0x4e59b44847b379578588920cA78FbF26c0B4956C;
     function run() external {
-        address initOwner = vm.envAddress("OWNER");
+        address initOwner = vm.envAddress("WITHDRAWER");
         address krystalRouter = vm.envAddress("KRYSTAL_ROUTER");
-        console.log("OWNER: ", initOwner, " KRYSTAL_ROUTER: ", krystalRouter);
+        console.log("WITHDRAWER: ", initOwner, " KRYSTAL_ROUTER: ", krystalRouter);
         address deploymentAddress = Create2.computeAddress(
             salt,
             keccak256(
@@ -22,8 +22,7 @@ contract ComputeAddressScript is Script {
             ),
             factory
         );
-        // forge verify-contract 0xfaacd9f7e68bb36c1029ab87d1d7325919e67cc0 src/V3Utils.sol:V3Utils --constructor-args $(cast abi-encode "constructor(address)" "0x70270C228c5B4279d1578799926873aa72446CcD")
         console.log("\nrun script below to verify contract: \n");
-        console.log("forge verify-contract ", deploymentAddress, "src/V3Utils.sol:V3Utils --constructor-args $(cast abi-encode \"constructor(address,address)\" $KRYSTAL_ROUTER $OWNER) \n\n");
+        console.log("forge verify-contract ", deploymentAddress, "src/V3Utils.sol:V3Utils --constructor-args $(cast abi-encode \"constructor(address,address)\" $KRYSTAL_ROUTER $WITHDRAWER) \n\n");
     }
 }

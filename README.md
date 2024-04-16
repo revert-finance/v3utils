@@ -45,10 +45,13 @@ using `--with-gas-price` flag to sepecify gas price:
 ```
 forge script script/V3Utils.s.sol:MyScript --legacy --rpc-url $RPC_URL --broadcast --with-gas-price $GAS_PRICE
 ```
-
+or with Makefile:
+```
+make deploy-v3utils
+```
 # Verify Contract
 
 Run script below to get verify contract script
 ```
-forge script script/ComputeAddress.s.sol:ComputeAddressScript
+make verify-v3utils
 ```
