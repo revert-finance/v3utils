@@ -29,7 +29,6 @@ contract V3UtilsIntegrationTest is IntegrationTestBase {
             "",
             0,
             0,
-            0,
             true,
             0,
             0,
@@ -37,9 +36,7 @@ contract V3UtilsIntegrationTest is IntegrationTestBase {
             0,
             TEST_NFT_ACCOUNT,
             false,
-            0,
-            "",
-            ""
+            0
         );
         NPM.safeTransferFrom(
             TEST_NFT_ACCOUNT,
@@ -92,7 +89,6 @@ contract V3UtilsIntegrationTest is IntegrationTestBase {
             0,
             0,
             "",
-            100, // change fee as well
             MIN_TICK_100,
             -MIN_TICK_100,
             true,
@@ -102,9 +98,7 @@ contract V3UtilsIntegrationTest is IntegrationTestBase {
             block.timestamp,
             TEST_NFT_ACCOUNT,
             false,
-            0,
-            "",
-            ""
+            0
         );
 
         vm.prank(TEST_NFT_ACCOUNT);
@@ -138,7 +132,6 @@ contract V3UtilsIntegrationTest is IntegrationTestBase {
             0,
             0,
             "",
-            100, // change fee as well
             MIN_TICK_100,
             -MIN_TICK_100,
             true,
@@ -148,9 +141,7 @@ contract V3UtilsIntegrationTest is IntegrationTestBase {
             block.timestamp,
             TEST_NFT_ACCOUNT,
             false,
-            0,
-            "",
-            ""
+            0
         );
 
         vm.prank(TEST_NFT_ACCOUNT);
@@ -187,9 +178,8 @@ contract V3UtilsIntegrationTest is IntegrationTestBase {
             0,
             0,
             "",
-            100, // change fee as well
-            MIN_TICK_100,
-            -MIN_TICK_100,
+            MIN_TICK_500,
+            -MIN_TICK_500,
             true,
             liquidityBefore, // take all liquidity
             0,
@@ -197,9 +187,7 @@ contract V3UtilsIntegrationTest is IntegrationTestBase {
             block.timestamp,
             TEST_NFT_ACCOUNT,
             false,
-            0,
-            "",
-            ""
+            0
         );
 
         // using approve / execute pattern
@@ -234,7 +222,6 @@ contract V3UtilsIntegrationTest is IntegrationTestBase {
             "",
             0,
             0,
-            0,
             true,
             0,
             0,
@@ -242,9 +229,7 @@ contract V3UtilsIntegrationTest is IntegrationTestBase {
             block.timestamp,
             TEST_NFT_3_ACCOUNT,
             false,
-            0,
-            "",
-            ""
+            0
         );
 
         uint256 daiBefore = DAI.balanceOf(TEST_NFT_3_ACCOUNT);
@@ -294,7 +279,6 @@ contract V3UtilsIntegrationTest is IntegrationTestBase {
             "",
             0,
             0,
-            0,
             true,
             0,
             0,
@@ -302,9 +286,7 @@ contract V3UtilsIntegrationTest is IntegrationTestBase {
             block.timestamp,
             TEST_NFT_3_ACCOUNT,
             false,
-            0,
-            "",
-            ""
+            0
         );
 
         uint256 daiBefore = DAI.balanceOf(TEST_NFT_3_ACCOUNT);
@@ -357,7 +339,6 @@ contract V3UtilsIntegrationTest is IntegrationTestBase {
             "",
             0,
             0,
-            0,
             true,
             liquidity,
             0,
@@ -365,9 +346,7 @@ contract V3UtilsIntegrationTest is IntegrationTestBase {
             block.timestamp,
             TEST_NFT_ACCOUNT,
             false,
-            0,
-            "",
-            ""
+            0
         );
 
         vm.prank(TEST_NFT_ACCOUNT);
@@ -420,7 +399,6 @@ contract V3UtilsIntegrationTest is IntegrationTestBase {
             "",
             0,
             0,
-            0,
             true,
             0,
             0,
@@ -428,9 +406,7 @@ contract V3UtilsIntegrationTest is IntegrationTestBase {
             block.timestamp,
             TEST_NFT_ACCOUNT,
             false,
-            0,
-            "",
-            ""
+            0
         );
 
         vm.prank(TEST_NFT_ACCOUNT);
@@ -612,8 +588,7 @@ contract V3UtilsIntegrationTest is IntegrationTestBase {
             0,
             "",
             0,
-            0,
-            ""
+            0
         );
 
         vm.prank(TEST_NFT_ACCOUNT);
@@ -681,8 +656,7 @@ contract V3UtilsIntegrationTest is IntegrationTestBase {
             0,
             "",
             0,
-            0,
-            ""
+            0
         );
 
         vm.prank(TEST_NFT_ACCOUNT);
@@ -727,8 +701,7 @@ contract V3UtilsIntegrationTest is IntegrationTestBase {
             661794703,
             _get05ETHToUSDCSwapData(),
             0,
-            0,
-            ""
+            0
         );
 
         hoax(TEST_NFT_ACCOUNT);

@@ -2,6 +2,7 @@
 pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/utils/Create2.sol";
+import "@openzeppelin/contracts/utils/Strings.sol";
 import "../src/V3Utils.sol";
 import "../src/V3Automation.sol";
 import "./Common.s.sol";
@@ -20,7 +21,17 @@ contract VerifyV3UtilsScript is CommonScript {
         );
         console.log("deployment address: ", deploymentAddress);
         console.log("\nrun script below to verify contract: \n");
-        console.log("forge verify-contract ", deploymentAddress, "src/V3Utils.sol:V3Utils --constructor-args $(cast abi-encode \"constructor(address,address,address)\" $KRYSTAL_ROUTER $ADMIN_ADDRESS $WITHDRAWER) \n\n");    
+        console.log(
+            string.concat(
+                "forge verify-contract ", 
+                Strings.toHexString(deploymentAddress),
+                " src/V3Utils.sol:V3Utils --constructor-args $(cast abi-encode \"constructor(address,address,address)\" ",
+                Strings.toHexString(krystalRouter), " ",
+                Strings.toHexString(admin), " ",
+                Strings.toHexString(withdrawer), " ",
+                ")"
+            )
+        );    
     }
 }
 
@@ -38,6 +49,16 @@ contract VerifyV3AutomationScript is CommonScript {
         );
         console.log("deployment address: ", deploymentAddress);
         console.log("\nrun script below to verify contract: \n");
-        console.log("forge verify-contract ", deploymentAddress, "src/V3Automation.sol:V3Automation --constructor-args $(cast abi-encode \"constructor(address,address,address)\" $KRYSTAL_ROUTER $ADMIN_ADDRESS $WITHDRAWER) \n\n");
+        console.log(
+            string.concat(
+                "forge verify-contract ", 
+                Strings.toHexString(deploymentAddress),
+                " src/V3Automation.sol:V3Automation --constructor-args $(cast abi-encode \"constructor(address,address,address)\" ",
+                Strings.toHexString(krystalRouter), " ",
+                Strings.toHexString(admin), " ",
+                Strings.toHexString(withdrawer), " ",
+                ")"
+            )
+        );    
     }
 }

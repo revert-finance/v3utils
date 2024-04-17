@@ -3,7 +3,6 @@ pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 import "@openzeppelin/contracts/utils/math/SafeCast.sol";
-
 import "./Common.sol";
 
 /// @title v3Utils v1.0
@@ -52,7 +51,6 @@ contract V3Utils is IERC721Receiver, Common {
         bytes swapData1; // encoded data from 0x api call (address,bytes) - allowanceTarget,data
 
         // for creating new positions with CHANGE_RANGE
-        uint24 fee;
         int24 tickLower;
         int24 tickUpper;
         
@@ -76,12 +74,6 @@ contract V3Utils is IERC721Receiver, Common {
 
         // protocol fees
         uint64 protocolFees;
-
-        // data sent with returned token to IERC721Receiver (optional) 
-        bytes returnData;
-
-        // data sent with minted token to IERC721Receiver (optional)
-        bytes swapAndMintReturnData;
     }
 
     /// @notice Execute instruction by pulling approved NFT instead of direct safeTransferFrom call from owner
@@ -101,7 +93,6 @@ contract V3Utils is IERC721Receiver, Common {
     /// @notice ERC721 callback function. Called on safeTransferFrom and does manipulation as configured in encoded Instructions parameter. 
     /// At the end the NFT (and any newly minted NFT) is returned to sender. The leftover tokens are sent to instructions.recipient.
     function onERC721Received(address, address from, uint256 tokenId, bytes calldata data)  whenNotPaused() external override returns (bytes4) {
-
         INonfungiblePositionManager nfpm = INonfungiblePositionManager(msg.sender);
         // not allowed to send to itself
         if (from == address(this)) {
@@ -110,7 +101,7 @@ contract V3Utils is IERC721Receiver, Common {
 
         Instructions memory instructions = abi.decode(data, (Instructions));
 
-        (address token0,address token1,uint128 liquidity,,,) = _getPosition(nfpm, instructions.protocol, tokenId);
+        (address token0,address token1,uint128 liquidity,,,uint24 fee) = _getPosition(nfpm, instructions.protocol, tokenId);
 
         (uint256 amount0, uint256 amount1) = _decreaseLiquidityAndCollectFees(DecreaseAndCollectFeesParams(nfpm, IERC20(token0), IERC20(token1), tokenId, instructions.liquidity, instructions.deadline, instructions.amountRemoveMin0, instructions.amountRemoveMin1, instructions.compoundFees));
 
@@ -136,12 +127,12 @@ contract V3Utils is IERC721Receiver, Common {
             uint256 token0Added;
             uint256 token1Added;
             if (instructions.targetToken == token0) {
-                (newTokenId, newLiquidity, token0Added, token1Added) = _swapAndMint(SwapAndMintParams(instructions.protocol, nfpm, IERC20(token0), IERC20(token1), instructions.fee, instructions.tickLower, instructions.tickUpper, amount0, amount1, instructions.recipient, instructions.deadline, IERC20(token1), instructions.amountIn1, instructions.amountOut1Min, instructions.swapData1, 0, 0, "", instructions.amountAddMin0, instructions.amountAddMin1, instructions.swapAndMintReturnData), instructions.unwrap);
+                (newTokenId, newLiquidity, token0Added, token1Added) = _swapAndMint(SwapAndMintParams(instructions.protocol, nfpm, IERC20(token0), IERC20(token1), fee, instructions.tickLower, instructions.tickUpper, amount0, amount1, instructions.recipient, instructions.deadline, IERC20(token1), instructions.amountIn1, instructions.amountOut1Min, instructions.swapData1, 0, 0, "", instructions.amountAddMin0, instructions.amountAddMin1), instructions.unwrap);
             } else if (instructions.targetToken == token1) {
-                (newTokenId, newLiquidity, token0Added, token1Added) = _swapAndMint(SwapAndMintParams(instructions.protocol, nfpm, IERC20(token0), IERC20(token1), instructions.fee, instructions.tickLower, instructions.tickUpper, amount0, amount1, instructions.recipient, instructions.deadline, IERC20(token0), 0, 0, "", instructions.amountIn0, instructions.amountOut0Min, instructions.swapData0, instructions.amountAddMin0, instructions.amountAddMin1, instructions.swapAndMintReturnData), instructions.unwrap);
+                (newTokenId, newLiquidity, token0Added, token1Added) = _swapAndMint(SwapAndMintParams(instructions.protocol, nfpm, IERC20(token0), IERC20(token1), fee, instructions.tickLower, instructions.tickUpper, amount0, amount1, instructions.recipient, instructions.deadline, IERC20(token0), 0, 0, "", instructions.amountIn0, instructions.amountOut0Min, instructions.swapData0, instructions.amountAddMin0, instructions.amountAddMin1), instructions.unwrap);
             } else {
                 // no swap is done here
-                (newTokenId, newLiquidity, token0Added, token1Added) = _swapAndMint(SwapAndMintParams(instructions.protocol, nfpm, IERC20(token0), IERC20(token1), instructions.fee, instructions.tickLower, instructions.tickUpper, amount0, amount1, instructions.recipient, instructions.deadline, IERC20(address(0)), 0, 0, "", 0, 0, "", instructions.amountAddMin0, instructions.amountAddMin1, instructions.swapAndMintReturnData), instructions.unwrap);
+                (newTokenId, newLiquidity, token0Added, token1Added) = _swapAndMint(SwapAndMintParams(instructions.protocol, nfpm, IERC20(token0), IERC20(token1), fee, instructions.tickLower, instructions.tickUpper, amount0, amount1, instructions.recipient, instructions.deadline, IERC20(address(0)), 0, 0, "", 0, 0, "", instructions.amountAddMin0, instructions.amountAddMin1), instructions.unwrap);
             }
 
             emit ChangeRange(msg.sender, tokenId, newTokenId, newLiquidity, token0Added, token1Added);
@@ -178,7 +169,7 @@ contract V3Utils is IERC721Receiver, Common {
         }
         
         // return token to owner (this line guarantees that token is returned to originating owner)
-        nfpm.safeTransferFrom(address(this), from, tokenId, instructions.returnData);
+        nfpm.transferFrom(address(this), from, tokenId);
 
         return IERC721Receiver.onERC721Received.selector;
     }

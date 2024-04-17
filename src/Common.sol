@@ -138,9 +138,6 @@ abstract contract Common is AccessControl, Pausable {
         // min amount to be added after swap
         uint256 amountAddMin0;
         uint256 amountAddMin1;
-
-        // data to be sent along newly created NFT when transfered to recipient (sent to IERC721Receiver callback)
-        bytes returnData;
     }
 
 
@@ -332,7 +329,7 @@ abstract contract Common is AccessControl, Pausable {
         } else {
             revert("Invalid protocol");
         }
-        params.nfpm.safeTransferFrom(address(this), params.recipient, tokenId, params.returnData);
+        params.nfpm.transferFrom(address(this), params.recipient, tokenId);
         emit SwapAndMint(address(params.nfpm), tokenId, liquidity, added0, added1);
 
         _returnLeftoverTokens(ReturnLeftoverTokensParams(weth, params.recipient, params.token0, params.token1, total0, total1, added0, added1, unwrap));
@@ -375,7 +372,7 @@ abstract contract Common is AccessControl, Pausable {
     // swap and increase logic
     function _swapAndIncrease(SwapAndIncreaseLiquidityParams memory params, IERC20 token0, IERC20 token1, bool unwrap) internal returns (uint128 liquidity, uint256 added0, uint256 added1) {
         (uint256 total0, uint256 total1) = _swapAndPrepareAmounts(
-            SwapAndMintParams(params.protocol, params.nfpm, token0, token1, 0, 0, 0, params.amount0, params.amount1, params.recipient, params.deadline, params.swapSourceToken, params.amountIn0, params.amountOut0Min, params.swapData0, params.amountIn1, params.amountOut1Min, params.swapData1, params.amountAddMin0, params.amountAddMin1, ""), unwrap);
+            SwapAndMintParams(params.protocol, params.nfpm, token0, token1, 0, 0, 0, params.amount0, params.amount1, params.recipient, params.deadline, params.swapSourceToken, params.amountIn0, params.amountOut0Min, params.swapData0, params.amountIn1, params.amountOut1Min, params.swapData1, params.amountAddMin0, params.amountAddMin1), unwrap);
 
         INonfungiblePositionManager.IncreaseLiquidityParams memory increaseLiquidityParams = 
             univ3.INonfungiblePositionManager.IncreaseLiquidityParams(
