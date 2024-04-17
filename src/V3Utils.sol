@@ -73,7 +73,7 @@ contract V3Utils is IERC721Receiver, Common {
         bool unwrap;
 
         // protocol fees
-        uint64 protocolFees;
+        uint64 protocolFeeX64;
     }
 
     /// @notice Execute instruction by pulling approved NFT instead of direct safeTransferFrom call from owner
@@ -101,9 +101,19 @@ contract V3Utils is IERC721Receiver, Common {
 
         Instructions memory instructions = abi.decode(data, (Instructions));
 
-        (address token0,address token1,uint128 liquidity,,,uint24 fee) = _getPosition(nfpm, instructions.protocol, tokenId);
+        (address token0,address token1,,,,uint24 fee) = _getPosition(nfpm, instructions.protocol, tokenId);
 
         (uint256 amount0, uint256 amount1) = _decreaseLiquidityAndCollectFees(DecreaseAndCollectFeesParams(nfpm, IERC20(token0), IERC20(token1), tokenId, instructions.liquidity, instructions.deadline, instructions.amountRemoveMin0, instructions.amountRemoveMin1, instructions.compoundFees));
+
+        // take protocol fees
+        {
+            if (instructions.protocolFeeX64 > 0) {
+                uint256 feeAmount0;
+                uint256 feeAmount1;
+                (amount0, amount1, feeAmount0, feeAmount1) = _takeFee(amount0, amount1, instructions.protocolFeeX64, FeeType.PROTOCOL_FEE);
+                emit TakeFees(address(nfpm), tokenId, instructions.recipient, amount0, amount1, feeAmount0, feeAmount1, instructions.protocolFeeX64, FeeType.PROTOCOL_FEE);
+            }
+        }
 
         // check if enough tokens are available for swaps
         if (amount0 < instructions.amountIn0 || amount1 < instructions.amountIn1) {
@@ -111,6 +121,7 @@ contract V3Utils is IERC721Receiver, Common {
         }
 
         if (instructions.whatToDo == WhatToDo.COMPOUND_FEES) {
+            uint128 liquidity;
             if (instructions.targetToken == token0) {
                 (liquidity, amount0, amount1) = _swapAndIncrease(SwapAndIncreaseLiquidityParams(instructions.protocol, nfpm, tokenId, amount0, amount1, instructions.recipient, instructions.deadline, IERC20(token1), instructions.amountIn1, instructions.amountOut1Min, instructions.swapData1, 0, 0, "", instructions.amountAddMin0, instructions.amountAddMin1), IERC20(token0), IERC20(token1), instructions.unwrap);
             } else if (instructions.targetToken == token1) {

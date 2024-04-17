@@ -18,4 +18,4 @@ deploy-%: %
 verify-v3utils:
 verify-v3automation:
 verify-%: %
-	forge script script/Verify.s.sol:Verify$(CONTRACT)Script | awk 'END{print}' | xargs -I{} bash -c '{}'
+	forge script script/Verify.s.sol:Verify$(CONTRACT)Script | awk 'END{print}' | bash
