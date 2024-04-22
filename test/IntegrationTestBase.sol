@@ -79,6 +79,7 @@ abstract contract IntegrationTestBase is Test {
                 TEST_NFT,
                 1000000000000000000,
                 0,
+                0,
                 TEST_NFT_ACCOUNT,
                 block.timestamp,
                 IERC20(address(0)),
@@ -97,7 +98,7 @@ abstract contract IntegrationTestBase is Test {
 
         vm.startPrank(TEST_NFT_ACCOUNT);
         DAI.approve(address(v3utils), 1000000000000000000);
-        Common.SwapAndIncreaseResult memory result = v3utils.swapAndIncreaseLiquidity(params);
+        Common.SwapAndIncreaseLiquidityResult memory result = v3utils.swapAndIncreaseLiquidity(params);
         vm.stopPrank();
         liquidity = result.liquidity;
         uint256 balanceAfter = DAI.balanceOf(TEST_NFT_ACCOUNT);

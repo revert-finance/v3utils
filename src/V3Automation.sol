@@ -94,24 +94,21 @@ contract V3Automation is Pausable, Common {
         }
 
         (state.amount0, state.amount1) = _decreaseLiquidityAndCollectFees(DecreaseAndCollectFeesParams(params.nfpm, IERC20(state.token0), IERC20(state.token1), params.tokenId, params.liquidity, params.deadline, params.amountRemoveMin0, params.amountRemoveMin1, params.compoundFees));
-
-        // take fees
+        
+        // deducte fees
         {
-            // take gas fees
+            uint256 gasFeeAmount0;
+            uint256 gasFeeAmount1;
             if (params.gasFeeX64 > 0) {
-                uint256 feeAmount0;
-                uint256 feeAmount1;
-                (state.amount0, state.amount1, feeAmount0, feeAmount1) = _takeFee(state.amount0, state.amount1, params.gasFeeX64, FeeType.GAS_FEE);
-                emit TakeFees(address(params.nfpm), params.tokenId, params.userAddress, state.amount0, state.amount1, feeAmount0, feeAmount1, params.gasFeeX64, FeeType.GAS_FEE);
+                (,,, gasFeeAmount0, gasFeeAmount1,) = _deducteFees(DeducteFeesParams(state.amount0, state.amount1, 0, params.gasFeeX64, FeeType.GAS_FEE, address(params.nfpm), params.tokenId, params.userAddress, state.token0, state.token1, address(0)), true);
             }
-
-            // take protocol fees
+            uint256 protocolFeeAmount0;
+            uint256 protocolFeeAmount1;
             if (params.protocolFeeX64 > 0) {
-                uint256 feeAmount0;
-                uint256 feeAmount1;
-                (state.amount0, state.amount1, feeAmount0, feeAmount1) = _takeFee(state.amount0, state.amount1, params.protocolFeeX64, FeeType.PROTOCOL_FEE);
-                emit TakeFees(address(params.nfpm), params.tokenId, params.userAddress, state.amount0, state.amount1, feeAmount0, feeAmount1, params.protocolFeeX64, FeeType.PROTOCOL_FEE);
+                (,,, protocolFeeAmount0, protocolFeeAmount1,) = _deducteFees(DeducteFeesParams(state.amount0, state.amount1, 0, params.protocolFeeX64, FeeType.PROTOCOL_FEE, address(params.nfpm), params.tokenId, params.userAddress, state.token0, state.token1, address(0)), true);
             }
+            state.amount0 = state.amount0 - gasFeeAmount0 - protocolFeeAmount0;
+            state.amount1 = state.amount1 - gasFeeAmount1 - protocolFeeAmount1;
         }
 
         if (params.action == Action.AUTO_ADJUST) {
@@ -120,11 +117,11 @@ contract V3Automation is Pausable, Common {
             }
             SwapAndMintResult memory result;
             if (params.targetToken == state.token0) {
-                result = _swapAndMint(SwapAndMintParams(params.protocol, params.nfpm, IERC20(state.token0), IERC20(state.token1), state.fee, params.newTickLower, params.newTickUpper, 0, state.amount0, state.amount1, params.userAddress, params.deadline, IERC20(state.token1), params.amountIn1, params.amountOut1Min, params.swapData1, 0, 0, bytes(""), params.amountAddMin0, params.amountAddMin1), false);
+                result = _swapAndMint(SwapAndMintParams(params.protocol, params.nfpm, IERC20(state.token0), IERC20(state.token1), state.fee, params.newTickLower, params.newTickUpper, 0, state.amount0, state.amount1, 0, params.userAddress, params.deadline, IERC20(state.token1), params.amountIn1, params.amountOut1Min, params.swapData1, 0, 0, bytes(""), params.amountAddMin0, params.amountAddMin1), false);
             } else if (params.targetToken == state.token1) {
-                result = _swapAndMint(SwapAndMintParams(params.protocol, params.nfpm, IERC20(state.token0), IERC20(state.token1), state.fee, params.newTickLower, params.newTickUpper, 0, state.amount0, state.amount1, params.userAddress, params.deadline, IERC20(state.token0), 0, 0, bytes(""), params.amountIn0, params.amountOut0Min, params.swapData0, params.amountAddMin0, params.amountAddMin1), false);
+                result = _swapAndMint(SwapAndMintParams(params.protocol, params.nfpm, IERC20(state.token0), IERC20(state.token1), state.fee, params.newTickLower, params.newTickUpper, 0, state.amount0, state.amount1, 0, params.userAddress, params.deadline, IERC20(state.token0), 0, 0, bytes(""), params.amountIn0, params.amountOut0Min, params.swapData0, params.amountAddMin0, params.amountAddMin1), false);
             } else {
-                result = _swapAndMint(SwapAndMintParams(params.protocol, params.nfpm, IERC20(state.token0), IERC20(state.token1), state.fee, params.newTickLower, params.newTickUpper, 0, state.amount0, state.amount1, params.userAddress, params.deadline, IERC20(address(0)), 0, 0, bytes(""), 0, 0, bytes(""), params.amountAddMin0, params.amountAddMin1), false);
+                result = _swapAndMint(SwapAndMintParams(params.protocol, params.nfpm, IERC20(state.token0), IERC20(state.token1), state.fee, params.newTickLower, params.newTickUpper, 0, state.amount0, state.amount1, 0, params.userAddress, params.deadline, IERC20(address(0)), 0, 0, bytes(""), 0, 0, bytes(""), params.amountAddMin0, params.amountAddMin1), false);
             }
             emit ChangeRange(address(params.nfpm), params.tokenId, result.tokenId, result.liquidity, result.added0, result.added1);
         } else if (params.action == Action.AUTO_EXIT) {
@@ -155,11 +152,11 @@ contract V3Automation is Pausable, Common {
             }
         } else if (params.action == Action.AUTO_COMPOUND) {
             if (params.targetToken == state.token0) {
-                _swapAndIncrease(SwapAndIncreaseLiquidityParams(params.protocol, params.nfpm, params.tokenId, state.amount0, state.amount1, params.userAddress, params.deadline, IERC20(state.token1), params.amountIn1, params.amountOut1Min, params.swapData1, 0, 0, bytes(""), params.amountAddMin0, params.amountAddMin1, 0), IERC20(state.token0), IERC20(state.token1), false);
+                _swapAndIncrease(SwapAndIncreaseLiquidityParams(params.protocol, params.nfpm, params.tokenId, state.amount0, state.amount1, 0, params.userAddress, params.deadline, IERC20(state.token1), params.amountIn1, params.amountOut1Min, params.swapData1, 0, 0, bytes(""), params.amountAddMin0, params.amountAddMin1, 0), IERC20(state.token0), IERC20(state.token1), false);
             } else if (state.token0 == state.token1) {
-                _swapAndIncrease(SwapAndIncreaseLiquidityParams(params.protocol, params.nfpm, params.tokenId, state.amount0, state.amount1, params.userAddress, params.deadline, IERC20(state.token0), 0, 0, bytes(""), params.amountIn0, params.amountOut0Min, params.swapData0, params.amountAddMin0, params.amountAddMin1, 0), IERC20(state.token0), IERC20(state.token1), false);
+                _swapAndIncrease(SwapAndIncreaseLiquidityParams(params.protocol, params.nfpm, params.tokenId, state.amount0, state.amount1, 0, params.userAddress, params.deadline, IERC20(state.token0), 0, 0, bytes(""), params.amountIn0, params.amountOut0Min, params.swapData0, params.amountAddMin0, params.amountAddMin1, 0), IERC20(state.token0), IERC20(state.token1), false);
             } else {
-                _swapAndIncrease(SwapAndIncreaseLiquidityParams(params.protocol, params.nfpm, params.tokenId, state.amount0, state.amount1, params.userAddress, params.deadline, IERC20(address(0)), 0, 0, bytes(""), 0, 0, bytes(""), params.amountAddMin0, params.amountAddMin1, 0), IERC20(state.token0), IERC20(state.token1), false);
+                _swapAndIncrease(SwapAndIncreaseLiquidityParams(params.protocol, params.nfpm, params.tokenId, state.amount0, state.amount1, 0, params.userAddress, params.deadline, IERC20(address(0)), 0, 0, bytes(""), 0, 0, bytes(""), params.amountAddMin0, params.amountAddMin1, 0), IERC20(state.token0), IERC20(state.token1), false);
             }
         } else {
             revert NotSupportedAction();

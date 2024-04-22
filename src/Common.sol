@@ -69,9 +69,24 @@ abstract contract Common is AccessControl, Pausable {
     error NotWETH();
     error TooMuchFee();
 
+
+    struct DeducteFeesEventData {
+        address token0;
+        address token1;
+        address token2;
+        uint256 amount0;
+        uint256 amount1;
+        uint256 amount2;
+        uint256 feeAmount0;
+        uint256 feeAmount1;
+        uint256 feeAmount2;
+        uint64 feeX64;
+        FeeType feeType;
+    }
+
     // events
     event CompoundFees(address indexed nfpm, uint256 indexed tokenId, uint128 liquidity, uint256 amount0, uint256 amount1);
-    event TakeFees(address indexed nfpm, uint256 indexed tokenId, address indexed userAddress, uint256 amount0, uint256 amount1, uint256 feeAmount0, uint256 feeAmount1, uint64 feeX64, FeeType feeType);
+    event DeducteFees(address indexed nfpm, uint256 indexed tokenId, address indexed userAddress, DeducteFeesEventData data);
     event ChangeRange(address indexed nfpm, uint256 indexed tokenId, uint256 newTokenId, uint256 newLiquidity, uint256 token0Added, uint256 token1Added);
     event WithdrawAndCollectAndSwap(address indexed nfpm, uint256 indexed tokenId, address token, uint256 amount);
     event Swap(address indexed tokenIn, address indexed tokenOut, uint256 amountIn, uint256 amountOut);
@@ -120,6 +135,7 @@ abstract contract Common is AccessControl, Pausable {
         // how much is provided of token0 and token1
         uint256 amount0;
         uint256 amount1;
+        uint256 amount2;
         address recipient; // recipient of tokens
         uint256 deadline;
 
@@ -152,6 +168,7 @@ abstract contract Common is AccessControl, Pausable {
         // how much is provided of token0 and token1
         uint256 amount0;
         uint256 amount1;
+        uint256 amount2;
         address recipient; // recipient of leftover tokens
         uint256 deadline;
         
@@ -198,6 +215,22 @@ abstract contract Common is AccessControl, Pausable {
         uint256 token0Min; 
         uint256 token1Min;
         bool compoundFees;
+    }
+
+    struct DeducteFeesParams {
+        uint256 amount0;
+        uint256 amount1;
+        uint256 amount2;
+        uint64 feeX64;
+        FeeType feeType;
+
+        // readonly params for emitting events
+        address nfpm;
+        uint256 tokenId;
+        address userAddress;
+        address token0;
+        address token1;
+        address token2;
     }
 
     /**
@@ -303,11 +336,6 @@ abstract contract Common is AccessControl, Pausable {
     // swap and mint logic
     function _swapAndMint(SwapAndMintParams memory params, bool unwrap) internal returns (SwapAndMintResult memory result) {
         (uint256 total0, uint256 total1) = _swapAndPrepareAmounts(params, unwrap);
-        uint256 feeAmount0;
-        uint256 feeAmount1;
-        if (params.protocolFeeX64 > 0) {
-            (total0, total1, feeAmount0, feeAmount1) = _takeFee(total0, total1, params.protocolFeeX64, FeeType.PROTOCOL_FEE);
-        }
         
         if (params.protocol == Protocol.UNI_V3) {
             // mint is done to address(this) because it is not a safemint and safeTransferFrom needs to be done manually afterwards
@@ -344,9 +372,7 @@ abstract contract Common is AccessControl, Pausable {
         }
         params.nfpm.transferFrom(address(this), params.recipient, result.tokenId);
         emit SwapAndMint(address(params.nfpm), result.tokenId, result.liquidity, result.added0, result.added1);
-        
-            emit TakeFees(address(params.nfpm), result.tokenId, params.recipient, total0, total1, feeAmount0, feeAmount1, params.protocolFeeX64, FeeType.PROTOCOL_FEE);
-        
+                
         _returnLeftoverTokens(ReturnLeftoverTokensParams(_getWeth9(params.nfpm, params.protocol), params.recipient, params.token0, params.token1, total0, total1, result.added0, result.added1, unwrap));
     }
 
@@ -384,7 +410,7 @@ abstract contract Common is AccessControl, Pausable {
         return nfpm.mint(mintParams);
     }
 
-    struct SwapAndIncreaseResult {
+    struct SwapAndIncreaseLiquidityResult {
         uint128 liquidity;
         uint256 added0;
         uint256 added1;
@@ -392,13 +418,9 @@ abstract contract Common is AccessControl, Pausable {
         uint256 feeAmount1;
     }
     // swap and increase logic
-    function _swapAndIncrease(SwapAndIncreaseLiquidityParams memory params, IERC20 token0, IERC20 token1, bool unwrap) internal returns (SwapAndIncreaseResult memory result) {
+    function _swapAndIncrease(SwapAndIncreaseLiquidityParams memory params, IERC20 token0, IERC20 token1, bool unwrap) internal returns (SwapAndIncreaseLiquidityResult memory result) {
         (uint256 total0, uint256 total1) = _swapAndPrepareAmounts(
-            SwapAndMintParams(params.protocol, params.nfpm, token0, token1, 0, 0, 0, 0, params.amount0, params.amount1, params.recipient, params.deadline, params.swapSourceToken, params.amountIn0, params.amountOut0Min, params.swapData0, params.amountIn1, params.amountOut1Min, params.swapData1, params.amountAddMin0, params.amountAddMin1), unwrap);
-        if (params.protocolFeeX64 > 0) {
-            (total0, total1, result.feeAmount0, result.feeAmount1) = _takeFee(total0, total1, params.protocolFeeX64, FeeType.PROTOCOL_FEE);
-            emit TakeFees(address(params.nfpm), params.tokenId, params.recipient, total0, total1, result.feeAmount0, result.feeAmount1, params.protocolFeeX64, FeeType.PROTOCOL_FEE);
-        }
+            SwapAndMintParams(params.protocol, params.nfpm, token0, token1, 0, 0, 0, 0, params.amount0, params.amount1, 0, params.recipient, params.deadline, params.swapSourceToken, params.amountIn0, params.amountOut0Min, params.swapData0, params.amountIn1, params.amountOut1Min, params.swapData1, params.amountAddMin0, params.amountAddMin1), unwrap);
         INonfungiblePositionManager.IncreaseLiquidityParams memory increaseLiquidityParams = 
             univ3.INonfungiblePositionManager.IncreaseLiquidityParams(
                 params.tokenId, 
@@ -605,15 +627,42 @@ abstract contract Common is AccessControl, Pausable {
         }
     }
 
-    function _takeFee(uint256 _amount0, uint256 _amount1, uint64 feeX64, FeeType feeType) internal view returns(uint256 amount0, uint256 amount1, uint256 feeAmount0, uint256 feeAmount1) {
-        if (feeX64 > _maxFeeX64[feeType]) {
+    /**
+     * @notice calculate fee
+     * @param emitEvent: whether to emit event or not. Since swap and mint have not had token id yet.
+     * we need to emit event latter
+     */
+    function _deducteFees(DeducteFeesParams memory params, bool emitEvent) internal returns(uint256 amount0Left, uint256 amount1Left, uint256 amount2Left, uint256 feeAmount0, uint256 feeAmount1, uint256 feeAmount2) {
+        if (params.feeX64 > _maxFeeX64[params.feeType]) {
             revert TooMuchFee();
         }
-        feeAmount0 = FullMath.mulDiv(amount0, feeX64, Q64);
-        feeAmount1 = FullMath.mulDiv(amount1, feeX64, Q64);
 
-        amount0 = _amount0 - feeAmount0;
-        amount1 = _amount1 - feeAmount1;
+        // to save gas, we always need to check if fee exists before deducteFees
+        if (params.feeX64 == 0) {
+            revert("no fee to duducte!");
+        }
+
+        if (params.amount0 > 0) {
+            feeAmount0 = FullMath.mulDiv(params.amount0, params.feeX64, Q64);
+            amount0Left = params.amount0 - feeAmount0;
+        }
+        if (params.amount1 > 0) {
+            feeAmount1 = FullMath.mulDiv(params.amount1, params.feeX64, Q64);
+            amount1Left = params.amount1 - feeAmount1;
+        }
+        if (params.amount2 > 0) {
+            feeAmount2 = FullMath.mulDiv(params.amount2, params.feeX64, Q64);
+            amount2Left = params.amount2 - feeAmount2;
+        }
+        if (emitEvent) {
+            emit DeducteFees(address(params.nfpm), params.tokenId, params.userAddress, DeducteFeesEventData(
+                params.token0, params.token1, params.token2, 
+                params.amount0, params.amount1, params.amount2, 
+                feeAmount0, feeAmount1, feeAmount2,
+                params.feeX64,
+                params.feeType
+            ));
+        }
     }
 
     function pause() public onlyRole(ADMIN_ROLE) {

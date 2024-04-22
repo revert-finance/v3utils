@@ -430,6 +430,7 @@ contract V3UtilsIntegrationTest is IntegrationTestBase {
                 TEST_NFT,
                 0,
                 0,
+                0,
                 TEST_NFT_ACCOUNT,
                 block.timestamp,
                 IERC20(address(0)),
@@ -457,6 +458,7 @@ contract V3UtilsIntegrationTest is IntegrationTestBase {
                 TEST_NFT,
                 0,
                 1000000,
+                0,
                 TEST_NFT_ACCOUNT,
                 block.timestamp,
                 USDC,
@@ -476,7 +478,7 @@ contract V3UtilsIntegrationTest is IntegrationTestBase {
         uint256 feeBalanceBefore = USDC.balanceOf(TEST_FEE_ACCOUNT);
 
         vm.prank(TEST_NFT_ACCOUNT);
-        Common.SwapAndIncreaseResult memory result = v3utils.swapAndIncreaseLiquidity(params);
+        Common.SwapAndIncreaseLiquidityResult memory result = v3utils.swapAndIncreaseLiquidity(params);
 
         uint256 feeBalance = USDC.balanceOf(TEST_FEE_ACCOUNT);
 
@@ -498,6 +500,7 @@ contract V3UtilsIntegrationTest is IntegrationTestBase {
                 TEST_NFT_5,
                 0,
                 2000000,
+                0,
                 TEST_NFT_5_ACCOUNT,
                 block.timestamp,
                 USDC,
@@ -519,7 +522,7 @@ contract V3UtilsIntegrationTest is IntegrationTestBase {
         uint256 daiBefore = DAI.balanceOf(TEST_NFT_5_ACCOUNT);
 
         vm.prank(TEST_NFT_5_ACCOUNT);
-        Common.SwapAndIncreaseResult memory result = v3utils.swapAndIncreaseLiquidity(params);
+        Common.SwapAndIncreaseLiquidityResult memory result = v3utils.swapAndIncreaseLiquidity(params);
         uint256 usdcAfter = USDC.balanceOf(TEST_NFT_5_ACCOUNT);
         uint256 daiAfter = DAI.balanceOf(TEST_NFT_5_ACCOUNT);
 
@@ -549,6 +552,7 @@ contract V3UtilsIntegrationTest is IntegrationTestBase {
                 TEST_NFT_5,
                 0,
                 2000000,
+                0,
                 TEST_NFT_ACCOUNT,
                 block.timestamp,
                 USDC,
@@ -580,6 +584,7 @@ contract V3UtilsIntegrationTest is IntegrationTestBase {
             500,
             MIN_TICK_500,
             -MIN_TICK_500,
+            0,
             0,
             0,
             0,
@@ -652,6 +657,7 @@ contract V3UtilsIntegrationTest is IntegrationTestBase {
             0,
             0,
             2000000,
+            0,
             TEST_NFT_ACCOUNT,
             block.timestamp,
             USDC,
@@ -693,6 +699,7 @@ contract V3UtilsIntegrationTest is IntegrationTestBase {
             0,
             0,
             0,
+            1 ether,
             TEST_NFT_ACCOUNT,
             block.timestamp,
             WETH_ERC20,
