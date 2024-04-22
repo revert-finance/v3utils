@@ -68,12 +68,7 @@ abstract contract IntegrationTestBase is Test {
     }
 
     function _increaseLiquidity()
-        internal
-        returns (
-            uint128 liquidity,
-            uint256 amount0,
-            uint256 amount1
-        )
+        internal returns (uint128 liquidity)
     {
         _writeTokenBalance(TEST_NFT_ACCOUNT, address(DAI), 1000000000000000000);
 
@@ -94,6 +89,7 @@ abstract contract IntegrationTestBase is Test {
                 0,
                 "",
                 0,
+                0,
                 0
             );
 
@@ -101,23 +97,24 @@ abstract contract IntegrationTestBase is Test {
 
         vm.startPrank(TEST_NFT_ACCOUNT);
         DAI.approve(address(v3utils), 1000000000000000000);
-        (liquidity, amount0, amount1) = v3utils.swapAndIncreaseLiquidity(params);
+        Common.SwapAndIncreaseResult memory result = v3utils.swapAndIncreaseLiquidity(params);
         vm.stopPrank();
-
+        liquidity = result.liquidity;
         uint256 balanceAfter = DAI.balanceOf(TEST_NFT_ACCOUNT);
 
         // uniswap sometimes adds not full balance (this tests that leftover tokens were returned correctly)
         assertEq(balanceBefore - balanceAfter, 999999999999998821);
 
-        assertEq(liquidity, 500625938064039);
-        assertEq(amount0, 999999999999998821); // added amount
-        assertEq(amount1, 0); // only added on one side
+        assertEq(result.liquidity, 500625938064039);
+        assertEq(result.added0, 999999999999998821); // added amount
+        assertEq(result.added1, 0); // only added on one side
 
         uint256 balanceDAI = DAI.balanceOf(address(v3utils));
         uint256 balanceUSDC = USDC.balanceOf(address(v3utils));
 
         assertEq(balanceDAI, 0);
         assertEq(balanceUSDC, 0);
+
     }
 
     function _get1USDCToDAISwapData() internal pure returns (bytes memory) {

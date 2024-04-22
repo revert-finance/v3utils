@@ -13,7 +13,10 @@ abstract contract CommonScript is Script {
 
     constructor() {
         krystalRouter = vm.envAddress("KRYSTAL_ROUTER");
-        withdrawer = vm.envAddress("ADMIN_ADDRESS");
+        admin = vm.envAddress("ADMIN_ADDRESS");
         withdrawer = vm.envAddress("WITHDRAWER");
+        console.log("KRYSTAL_ROUTER: ", krystalRouter);
+        console.log("ADMIN_ADDRESS: ", admin);
+        console.log("WITHDRAWER: ", withdrawer);
     }
 }

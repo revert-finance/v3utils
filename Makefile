@@ -7,6 +7,8 @@ build: src/V3Utils.sol
 	forge build
 test: src/V3Utils.sol test/*
 	forge test
+clean:
+	forge clean
 v3utils:
 	$(eval CONTRACT=V3Utils)
 v3automation:
@@ -14,6 +16,7 @@ v3automation:
 deploy-v3utils:
 deploy-v3automation:
 deploy-%: %
+	@echo CONTRACT=$(CONTRACT)
 	forge script script/$(CONTRACT).s.sol:$(CONTRACT)Script --rpc-url $(RPC_URL) --broadcast
 verify-v3utils:
 verify-v3automation:

@@ -121,32 +121,29 @@ contract V3Utils is IERC721Receiver, Common {
         }
 
         if (instructions.whatToDo == WhatToDo.COMPOUND_FEES) {
-            uint128 liquidity;
+            SwapAndIncreaseResult memory result;
             if (instructions.targetToken == token0) {
-                (liquidity, amount0, amount1) = _swapAndIncrease(SwapAndIncreaseLiquidityParams(instructions.protocol, nfpm, tokenId, amount0, amount1, instructions.recipient, instructions.deadline, IERC20(token1), instructions.amountIn1, instructions.amountOut1Min, instructions.swapData1, 0, 0, "", instructions.amountAddMin0, instructions.amountAddMin1), IERC20(token0), IERC20(token1), instructions.unwrap);
+               result = _swapAndIncrease(SwapAndIncreaseLiquidityParams(instructions.protocol, nfpm, tokenId, amount0, amount1, instructions.recipient, instructions.deadline, IERC20(token1), instructions.amountIn1, instructions.amountOut1Min, instructions.swapData1, 0, 0, "", instructions.amountAddMin0, instructions.amountAddMin1, 0), IERC20(token0), IERC20(token1), instructions.unwrap);
             } else if (instructions.targetToken == token1) {
-                (liquidity, amount0, amount1) = _swapAndIncrease(SwapAndIncreaseLiquidityParams(instructions.protocol, nfpm, tokenId, amount0, amount1, instructions.recipient, instructions.deadline, IERC20(token0), 0, 0, "", instructions.amountIn0, instructions.amountOut0Min, instructions.swapData0, instructions.amountAddMin0, instructions.amountAddMin1), IERC20(token0), IERC20(token1), instructions.unwrap);
+               result = _swapAndIncrease(SwapAndIncreaseLiquidityParams(instructions.protocol, nfpm, tokenId, amount0, amount1, instructions.recipient, instructions.deadline, IERC20(token0), 0, 0, "", instructions.amountIn0, instructions.amountOut0Min, instructions.swapData0, instructions.amountAddMin0, instructions.amountAddMin1, 0), IERC20(token0), IERC20(token1), instructions.unwrap);
             } else {
                 // no swap is done here
-                (liquidity,amount0, amount1) = _swapAndIncrease(SwapAndIncreaseLiquidityParams(instructions.protocol, nfpm, tokenId, amount0, amount1, instructions.recipient, instructions.deadline, IERC20(address(0)), 0, 0, "", 0, 0, "", instructions.amountAddMin0, instructions.amountAddMin1), IERC20(token0), IERC20(token1), instructions.unwrap);
+               result = _swapAndIncrease(SwapAndIncreaseLiquidityParams(instructions.protocol, nfpm, tokenId, amount0, amount1, instructions.recipient, instructions.deadline, IERC20(address(0)), 0, 0, "", 0, 0, "", instructions.amountAddMin0, instructions.amountAddMin1, 0), IERC20(token0), IERC20(token1), instructions.unwrap);
             }
-            emit CompoundFees(address(nfpm), tokenId, liquidity, amount0, amount1);            
+            emit CompoundFees(address(nfpm), tokenId, result.liquidity, result.added0, result.added1);            
         } else if (instructions.whatToDo == WhatToDo.CHANGE_RANGE) {
 
-            uint256 newTokenId;
-            uint256 newLiquidity;
-            uint256 token0Added;
-            uint256 token1Added;
+            SwapAndMintResult memory result;
             if (instructions.targetToken == token0) {
-                (newTokenId, newLiquidity, token0Added, token1Added) = _swapAndMint(SwapAndMintParams(instructions.protocol, nfpm, IERC20(token0), IERC20(token1), fee, instructions.tickLower, instructions.tickUpper, amount0, amount1, instructions.recipient, instructions.deadline, IERC20(token1), instructions.amountIn1, instructions.amountOut1Min, instructions.swapData1, 0, 0, "", instructions.amountAddMin0, instructions.amountAddMin1), instructions.unwrap);
+                result = _swapAndMint(SwapAndMintParams(instructions.protocol, nfpm, IERC20(token0), IERC20(token1), fee, instructions.tickLower, instructions.tickUpper, 0, amount0, amount1, instructions.recipient, instructions.deadline, IERC20(token1), instructions.amountIn1, instructions.amountOut1Min, instructions.swapData1, 0, 0, "", instructions.amountAddMin0, instructions.amountAddMin1), instructions.unwrap);
             } else if (instructions.targetToken == token1) {
-                (newTokenId, newLiquidity, token0Added, token1Added) = _swapAndMint(SwapAndMintParams(instructions.protocol, nfpm, IERC20(token0), IERC20(token1), fee, instructions.tickLower, instructions.tickUpper, amount0, amount1, instructions.recipient, instructions.deadline, IERC20(token0), 0, 0, "", instructions.amountIn0, instructions.amountOut0Min, instructions.swapData0, instructions.amountAddMin0, instructions.amountAddMin1), instructions.unwrap);
+                result = _swapAndMint(SwapAndMintParams(instructions.protocol, nfpm, IERC20(token0), IERC20(token1), fee, instructions.tickLower, instructions.tickUpper, 0, amount0, amount1, instructions.recipient, instructions.deadline, IERC20(token0), 0, 0, "", instructions.amountIn0, instructions.amountOut0Min, instructions.swapData0, instructions.amountAddMin0, instructions.amountAddMin1), instructions.unwrap);
             } else {
                 // no swap is done here
-                (newTokenId, newLiquidity, token0Added, token1Added) = _swapAndMint(SwapAndMintParams(instructions.protocol, nfpm, IERC20(token0), IERC20(token1), fee, instructions.tickLower, instructions.tickUpper, amount0, amount1, instructions.recipient, instructions.deadline, IERC20(address(0)), 0, 0, "", 0, 0, "", instructions.amountAddMin0, instructions.amountAddMin1), instructions.unwrap);
+                result = _swapAndMint(SwapAndMintParams(instructions.protocol, nfpm, IERC20(token0), IERC20(token1), fee, instructions.tickLower, instructions.tickUpper, 0, amount0, amount1, instructions.recipient, instructions.deadline, IERC20(address(0)), 0, 0, "", 0, 0, "", instructions.amountAddMin0, instructions.amountAddMin1), instructions.unwrap);
             }
 
-            emit ChangeRange(msg.sender, tokenId, newTokenId, newLiquidity, token0Added, token1Added);
+            emit ChangeRange(msg.sender, tokenId, result.tokenId, result.liquidity, result.added0, result.added1);
         } else if (instructions.whatToDo == WhatToDo.WITHDRAW_AND_COLLECT_AND_SWAP) {
             IWETH9 weth = _getWeth9(nfpm, instructions.protocol);
             uint256 targetAmount;
@@ -227,25 +224,23 @@ contract V3Utils is IERC721Receiver, Common {
     /// @notice Does 1 or 2 swaps from swapSourceToken to token0 and token1 and adds as much as possible liquidity to a newly minted position.
     /// @param params Swap and mint configuration
     /// Newly minted NFT and leftover tokens are returned to recipient
-    function swapAndMint(SwapAndMintParams calldata params)  whenNotPaused() external payable returns (uint256 tokenId, uint128 liquidity, uint256 amount0, uint256 amount1) {
+    function swapAndMint(SwapAndMintParams calldata params)  whenNotPaused() external payable returns (SwapAndMintResult memory result) {
         if (params.token0 == params.token1) {
             revert SameToken();
         }
-        IWETH9 weth = _getWeth9(params.nfpm, params.protocol);
-        _prepareSwap(weth, params.token0, params.token1, params.swapSourceToken, params.amount0, params.amount1, params.amountIn0 + params.amountIn1);
-        (tokenId, liquidity, amount0, amount1) = _swapAndMint(params, msg.value != 0);
+        _prepareSwap(_getWeth9(params.nfpm, params.protocol), params.token0, params.token1, params.swapSourceToken, params.amount0, params.amount1, params.amountIn0 + params.amountIn1);
+        result = _swapAndMint(params, msg.value != 0);
     }
 
     /// @notice Does 1 or 2 swaps from swapSourceToken to token0 and token1 and adds as much as possible liquidity to any existing position (no need to be position owner).
     /// @param params Swap and increase liquidity configuration
     // Sends any leftover tokens to recipient.
-    function swapAndIncreaseLiquidity(SwapAndIncreaseLiquidityParams calldata params)  whenNotPaused() external payable returns (uint128 liquidity, uint256 amount0, uint256 amount1) {
+    function swapAndIncreaseLiquidity(SwapAndIncreaseLiquidityParams calldata params)  whenNotPaused() external payable returns (SwapAndIncreaseResult memory result) {
         address owner = params.nfpm.ownerOf(params.tokenId);
         require(owner == msg.sender, "sender is not owner of position");
         (address token0,address token1,,,,) = _getPosition(params.nfpm, params.protocol, params.tokenId);
-        IWETH9 weth = _getWeth9(params.nfpm, params.protocol);
-        _prepareSwap(weth, IERC20(token0), IERC20(token1), params.swapSourceToken, params.amount0, params.amount1, params.amountIn0 + params.amountIn1);
-        (liquidity, amount0, amount1) = _swapAndIncrease(params, IERC20(token0), IERC20(token1), msg.value != 0);
+        _prepareSwap(_getWeth9(params.nfpm, params.protocol), IERC20(token0), IERC20(token1), params.swapSourceToken, params.amount0, params.amount1, params.amountIn0 + params.amountIn1);
+        result = _swapAndIncrease(params, IERC20(token0), IERC20(token1), msg.value != 0);
     }
     // needed for WETH unwrapping
     receive() external payable{}

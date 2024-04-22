@@ -23,7 +23,7 @@ forge install
 Most tests use a forked state of Ethereum Mainnet. You can run all tests with: 
 
 ```sh
-forge test --via-ir
+make test
 ```
 
 

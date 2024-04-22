@@ -320,7 +320,7 @@ contract V3UtilsIntegrationTest is IntegrationTestBase {
 
     function _testTransferWithWithdrawAndSwap() internal {
         // add liquidity to existing (empty) position (add 1 DAI / 0 USDC)
-        (uint128 liquidity, , ) = _increaseLiquidity();
+        uint128 liquidity = _increaseLiquidity();
 
         uint256 countBefore = NPM.balanceOf(TEST_NFT_ACCOUNT);
 
@@ -364,7 +364,7 @@ contract V3UtilsIntegrationTest is IntegrationTestBase {
 
     function _testTransferWithCollectAndSwap() internal {
         // add liquidity to existing (empty) position (add 1 DAI / 0 USDC)
-        (uint128 liquidity, , ) = _increaseLiquidity();
+        uint128 liquidity = _increaseLiquidity();
 
         // decrease liquidity without collect (simulate fee growth)
         vm.prank(TEST_NFT_ACCOUNT);
@@ -440,6 +440,7 @@ contract V3UtilsIntegrationTest is IntegrationTestBase {
                 0,
                 "",
                 0,
+                0,
                 0
             );
 
@@ -466,6 +467,7 @@ contract V3UtilsIntegrationTest is IntegrationTestBase {
                 0,
                 "",
                 0,
+                0,
                 0
             );
 
@@ -474,14 +476,14 @@ contract V3UtilsIntegrationTest is IntegrationTestBase {
         uint256 feeBalanceBefore = USDC.balanceOf(TEST_FEE_ACCOUNT);
 
         vm.prank(TEST_NFT_ACCOUNT);
-        (uint128 liquidity, uint256 amount0, uint256 amount1) = v3utils.swapAndIncreaseLiquidity(params);
+        Common.SwapAndIncreaseResult memory result = v3utils.swapAndIncreaseLiquidity(params);
 
         uint256 feeBalance = USDC.balanceOf(TEST_FEE_ACCOUNT);
 
-        assertEq(liquidity, 495285928421852);
-        assertEq(amount0, 989333334060081199);
+        assertEq(result.liquidity, 495285928421852);
+        assertEq(result.added0, 989333334060081199);
         assertEq(1000000 / (feeBalance-feeBalanceBefore), 100);
-        assertEq(amount1, 0); // one sided adding
+        assertEq(result.added1, 0); // one sided adding
     }
 
     function testSwapAndIncreaseLiquidityBothSides() external {
@@ -506,6 +508,7 @@ contract V3UtilsIntegrationTest is IntegrationTestBase {
                 0,
                 "",
                 0,
+                0,
                 0
             );
 
@@ -516,7 +519,7 @@ contract V3UtilsIntegrationTest is IntegrationTestBase {
         uint256 daiBefore = DAI.balanceOf(TEST_NFT_5_ACCOUNT);
 
         vm.prank(TEST_NFT_5_ACCOUNT);
-        (uint128 liquidity, uint256 amount0, uint256 amount1) = v3utils.swapAndIncreaseLiquidity(params);
+        Common.SwapAndIncreaseResult memory result = v3utils.swapAndIncreaseLiquidity(params);
         uint256 usdcAfter = USDC.balanceOf(TEST_NFT_5_ACCOUNT);
         uint256 daiAfter = DAI.balanceOf(TEST_NFT_5_ACCOUNT);
 
@@ -524,12 +527,12 @@ contract V3UtilsIntegrationTest is IntegrationTestBase {
         uint256 feeBalance = USDC.balanceOf(TEST_FEE_ACCOUNT);
         assertEq(feeBalance, 3346001);
 
-        assertEq(liquidity, 1610525505274001);
-        assertEq(amount0, 989333334060081225);
-        assertEq(amount1, 620657);
+        assertEq(result.liquidity, 1610525505274001);
+        assertEq(result.added0, 989333334060081225);
+        assertEq(result.added1, 620657);
 
         // all usdc spent
-        assertEq(usdcBefore - usdcAfter, 1000000+amount1);
+        assertEq(usdcBefore - usdcAfter, 1000000+result.added1);
         //some dai returned - because not 100% correct swap ratio
         assertEq(daiAfter - daiBefore, 47);
     }
@@ -556,6 +559,7 @@ contract V3UtilsIntegrationTest is IntegrationTestBase {
                 0,
                 "",
                 0,
+                0,
                 0
             );
 
@@ -576,6 +580,7 @@ contract V3UtilsIntegrationTest is IntegrationTestBase {
             500,
             MIN_TICK_500,
             -MIN_TICK_500,
+            0,
             0,
             0,
             TEST_NFT_ACCOUNT,
@@ -645,6 +650,7 @@ contract V3UtilsIntegrationTest is IntegrationTestBase {
             lower,
             upper,
             0,
+            0,
             2000000,
             TEST_NFT_ACCOUNT,
             block.timestamp,
@@ -663,20 +669,15 @@ contract V3UtilsIntegrationTest is IntegrationTestBase {
         USDC.approve(address(v3utils), 2000000);
 
         vm.prank(TEST_NFT_ACCOUNT);
-        (
-            uint256 tokenId,
-            uint128 liquidity,
-            uint256 amount0,
-            uint256 amount1
-        ) = v3utils.swapAndMint(params);
+        Common.SwapAndMintResult memory result = v3utils.swapAndMint(params);
 
         uint256 feeBalance = USDC.balanceOf(TEST_FEE_ACCOUNT);
         assertEq(feeBalance-feeBalanceBefore, 10000); // fee is 1%
 
-        assertGt(tokenId, 0);
-        assertEq(liquidity, eLiquidity);
-        assertEq(amount0, eAmount0);
-        assertEq(amount1, eAmount1);
+        assertGt(result.tokenId, 0);
+        assertEq(result.liquidity, eLiquidity);
+        assertEq(result.added0, eAmount0);
+        assertEq(result.added1, eAmount1);
     }
 
     function testSwapAndMintWithETH() public {
@@ -689,6 +690,7 @@ contract V3UtilsIntegrationTest is IntegrationTestBase {
             500,
             MIN_TICK_500,
             -MIN_TICK_500,
+            0,
             0,
             0,
             TEST_NFT_ACCOUNT,
@@ -705,17 +707,12 @@ contract V3UtilsIntegrationTest is IntegrationTestBase {
         );
 
         hoax(TEST_NFT_ACCOUNT);
-        (
-            uint256 tokenId,
-            uint128 liquidity,
-            uint256 amount0,
-            uint256 amount1
-        ) = v3utils.swapAndMint{value: 1 ether}(params);
+        Common.SwapAndMintResult memory result = v3utils.swapAndMint{value: 1 ether}(params);
 
-        assertGt(tokenId, 0);
-        assertEq(liquidity, 1249239075875054);
-        assertEq(amount0, 1249125286170506379296);
-        assertEq(amount1, 1249352876);
+        assertGt(result.tokenId, 0);
+        assertEq(result.liquidity, 1249239075875054);
+        assertEq(result.added0, 1249125286170506379296);
+        assertEq(result.added1, 1249352876);
 
         uint256 feeBalance = WETH_ERC20.balanceOf(TEST_FEE_ACCOUNT);
         assertEq(feeBalance-feeBalanceBefore, 10000000000000000);
