@@ -4,7 +4,7 @@ pragma solidity ^0.8.0;
 import "../IntegrationTestBase.sol";
 
 contract V3AutomationIntegrationTest is IntegrationTestBase {
-   
+    Signature.Order emptyUserConfig; // todo: remove this when we fill user configuration
     function setUp() external {
         _setupBase();
     }
@@ -42,7 +42,9 @@ contract V3AutomationIntegrationTest is IntegrationTestBase {
             -MIN_TICK_500,
             true,
             0,
-            0
+            0,
+            emptyUserConfig, // todo: fill user config and signature
+            ""
         );
 
         // using approve / execute pattern
@@ -93,7 +95,9 @@ contract V3AutomationIntegrationTest is IntegrationTestBase {
             -MIN_TICK_100,
             true,
             0,
-            0
+            0,
+            emptyUserConfig,
+            ""
         );
 
         // using approve / execute pattern

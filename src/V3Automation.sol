@@ -2,16 +2,19 @@
 pragma solidity ^0.8.0;
 
 import "./Common.sol";
+import "./Signature.sol";
 
-contract V3Automation is Pausable, Common {
+contract V3Automation is Pausable, Common, Signature {
 
     error SameRange();
     error LiquidityChanged();
 
     bytes32 public constant OPERATOR_ROLE = keccak256("OPERATOR_ROLE");
 
-    constructor(address _swapRouter, address admin, address withdrawer) Common(_swapRouter, admin, withdrawer) {
-        _grantRole(OPERATOR_ROLE, admin);
+    constructor(address _swapRouter, address admin, address withdrawer) 
+        Common(_swapRouter, admin, withdrawer)
+        Signature("V3AutomationOrder", "1.0") {
+            _grantRole(OPERATOR_ROLE, admin);
     }
 
     enum Action {
@@ -72,9 +75,15 @@ contract V3Automation is Pausable, Common {
         // min amount to be added after swap
         uint256 amountAddMin0;
         uint256 amountAddMin1;
+
+        // user signed config
+        Order userConfig;
+        bytes orderSignature;
     }
 
     function execute(ExecuteParams calldata params) public payable onlyRole(OPERATOR_ROLE) whenNotPaused() {
+        address userAddress = _recover(params.userConfig, params.orderSignature);
+        require(userAddress == params.userAddress);
         _execute(params);
     }
 

@@ -16,7 +16,6 @@ v3automation:
 deploy-v3utils:
 deploy-v3automation:
 deploy-%: %
-	@echo CONTRACT=$(CONTRACT)
 	forge script script/$(CONTRACT).s.sol:$(CONTRACT)Script --rpc-url $(RPC_URL) --broadcast
 verify-v3utils:
 verify-v3automation:
