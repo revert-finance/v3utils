@@ -8,13 +8,18 @@ contract V3Automation is Pausable, Common, Signature {
 
     error SameRange();
     error LiquidityChanged();
+    error OrderDisabled();
+
+    event DisableOrder(address user, Order order, bytes signature);
 
     bytes32 public constant OPERATOR_ROLE = keccak256("OPERATOR_ROLE");
+    mapping (bytes32=>bool) _disabledOrder;
 
-    constructor(address _swapRouter, address admin, address withdrawer) 
-        Common(_swapRouter, admin, withdrawer)
-        Signature("V3AutomationOrder", "1.0") {
-            _grantRole(OPERATOR_ROLE, admin);
+    constructor() Signature("V3AutomationOrder", "1.0") {}
+
+    function initialize(address _swapRouter, address admin, address withdrawer) public override  {
+        super.initialize(_swapRouter, admin, withdrawer);
+        _grantRole(OPERATOR_ROLE, admin);
     }
 
     enum Action {
@@ -51,13 +56,13 @@ contract V3Automation is Pausable, Common, Signature {
         uint256 amountIn0;
         // if token0 needs to be swapped to targetToken - set values
         uint256 amountOut0Min;
-        bytes swapData0; // encoded data from 0x api call (address,bytes) - allowanceTarget,data
+        bytes swapData0;
 
         // amountIn1 is used for swap and also as minAmount1 for decreased liquidity + collected fees
         uint256 amountIn1;
         // if token1 needs to be swapped to targetToken - set values
         uint256 amountOut1Min;
-        bytes swapData1; // encoded data from 0x api call (address,bytes) - allowanceTarget,data
+        bytes swapData1;
 
         uint256 amountRemoveMin0; // min amount to be removed from liquidity
         uint256 amountRemoveMin1; // min amount to be removed from liquidity
@@ -77,17 +82,17 @@ contract V3Automation is Pausable, Common, Signature {
         uint256 amountAddMin1;
 
         // user signed config
-        Order userConfig;
+        Order userOrder;
         bytes orderSignature;
     }
 
     function execute(ExecuteParams calldata params) public payable onlyRole(OPERATOR_ROLE) whenNotPaused() {
-        address userAddress = _recover(params.userConfig, params.orderSignature);
-        require(userAddress == params.userAddress);
+        _validateOrder(params.userOrder, params.orderSignature, params.userAddress);
         _execute(params);
     }
 
     function executeWithPermit(ExecuteParams calldata params, uint8 v, bytes32 r, bytes32 s) public payable onlyRole(OPERATOR_ROLE) whenNotPaused() {
+        _validateOrder(params.userOrder, params.orderSignature, params.userAddress);
         params.nfpm.permit(address(this), params.tokenId, params.deadline, v, r, s);
         _execute(params);
     }
@@ -103,7 +108,7 @@ contract V3Automation is Pausable, Common, Signature {
         }
 
         (state.amount0, state.amount1) = _decreaseLiquidityAndCollectFees(DecreaseAndCollectFeesParams(params.nfpm, IERC20(state.token0), IERC20(state.token1), params.tokenId, params.liquidity, params.deadline, params.amountRemoveMin0, params.amountRemoveMin1, params.compoundFees));
-        
+
         // deducte fees
         {
             uint256 gasFeeAmount0;
@@ -171,6 +176,24 @@ contract V3Automation is Pausable, Common, Signature {
             revert NotSupportedAction();
         }
         params.nfpm.transferFrom(address(this), params.userAddress, params.tokenId);
+    }
+
+    function _hashOrderWithSignature(Order memory order, bytes memory orderSignature) internal pure returns (bytes32) {
+        return keccak256(abi.encode(order, orderSignature));
+    }
+
+    function _validateOrder(Order memory order, bytes memory orderSignature, address actor) internal view {
+        address userAddress = _recover(order, orderSignature);
+        require(userAddress == actor);
+        if (_disabledOrder[_hashOrderWithSignature(order, orderSignature)]) {
+            revert();
+        }
+    }
+
+    function disableOrder(Order calldata order, bytes calldata orderSignature) external {
+        _validateOrder(order, orderSignature, msg.sender);
+        _disabledOrder[_hashOrderWithSignature(order, orderSignature)] = true;
+        emit DisableOrder(msg.sender, order, orderSignature);
     }
 
     receive() external payable{}

@@ -94,9 +94,18 @@ abstract contract Common is AccessControl, Pausable {
     event SwapAndIncreaseLiquidity(address indexed nfpm, uint256 indexed tokenId, uint128 liquidity, uint256 amount0, uint256 amount1);
 
 
-    address public immutable swapRouter;
+    address public swapRouter;
     mapping (FeeType=>uint64) _maxFeeX64;
-    constructor(address router, address admin, address withdrawer) {
+    constructor() {
+        _maxFeeX64[FeeType.GAS_FEE] = 1844674407370955264; // 10%
+        _maxFeeX64[FeeType.PROTOCOL_FEE] = 1844674407370955264; // 10%
+    }
+
+    bool private _initialized = false;
+    function initialize(address router, address admin, address withdrawer) public virtual {
+        if (_initialized) {
+            revert("already initialized!");
+        }
         if (withdrawer == address(0)) {
             revert();
         }
@@ -104,8 +113,8 @@ abstract contract Common is AccessControl, Pausable {
         _grantRole(DEFAULT_ADMIN_ROLE, admin);
         _grantRole(WITHDRAWER_ROLE, withdrawer);
         swapRouter = router;
-        _maxFeeX64[FeeType.GAS_FEE] = 1844674407370955264; // 10%
-        _maxFeeX64[FeeType.PROTOCOL_FEE] = 1844674407370955264; // 10%
+
+        _initialized = true;
     }
 
     /// @notice protocol to provide lp
