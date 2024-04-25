@@ -6,10 +6,10 @@ abstract contract EIP712 {
     bytes32 private constant TYPE_HASH =
         keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)");
 
-    bytes32 private immutable _cachedDomainSeparator;
+    bytes32 public immutable DOMAIN_SEPARATOR;
 
     constructor(string memory name, string memory version) {
-        _cachedDomainSeparator = keccak256(
+        DOMAIN_SEPARATOR = keccak256(
             abi.encode(
                 TYPE_HASH, 
                 keccak256(bytes(name)), 
@@ -20,15 +20,8 @@ abstract contract EIP712 {
         );
     }
 
-    /**
-     * @dev Returns the domain separator for the current chain.
-     */
-    function _domainSeparatorV4() internal view returns (bytes32) {
-        return _cachedDomainSeparator;
-    }
-
     function _hashTypedDataV4(bytes32 structHash) internal view virtual returns (bytes32) {
-        return toTypedDataHash(_domainSeparatorV4(), structHash);
+        return toTypedDataHash(DOMAIN_SEPARATOR, structHash);
     }
 
     /**

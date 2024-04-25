@@ -8,12 +8,12 @@ contract V3Automation is Pausable, Common, Signature {
 
     error SameRange();
     error LiquidityChanged();
-    error OrderDisabled();
+    error OrderCancelled();
 
-    event DisableOrder(address user, Order order, bytes signature);
+    event CancelOrder(address user, Order order, bytes signature);
 
     bytes32 public constant OPERATOR_ROLE = keccak256("OPERATOR_ROLE");
-    mapping (bytes32=>bool) _disabledOrder;
+    mapping (bytes32=>bool) _cancelledOrder;
 
     constructor() Signature("V3AutomationOrder", "1.0") {}
 
@@ -178,22 +178,22 @@ contract V3Automation is Pausable, Common, Signature {
         params.nfpm.transferFrom(address(this), params.userAddress, params.tokenId);
     }
 
-    function _hashOrderWithSignature(Order memory order, bytes memory orderSignature) internal pure returns (bytes32) {
-        return keccak256(abi.encode(order, orderSignature));
-    }
-
     function _validateOrder(Order memory order, bytes memory orderSignature, address actor) internal view {
         address userAddress = _recover(order, orderSignature);
         require(userAddress == actor);
-        if (_disabledOrder[_hashOrderWithSignature(order, orderSignature)]) {
-            revert();
+        if (_cancelledOrder[keccak256(orderSignature)]) {
+            revert OrderCancelled();
         }
     }
 
-    function disableOrder(Order calldata order, bytes calldata orderSignature) external {
+    function cancelOrder(Order calldata order, bytes calldata orderSignature) external {
         _validateOrder(order, orderSignature, msg.sender);
-        _disabledOrder[_hashOrderWithSignature(order, orderSignature)] = true;
-        emit DisableOrder(msg.sender, order, orderSignature);
+        _cancelledOrder[keccak256(orderSignature)] = true;
+        emit CancelOrder(msg.sender, order, orderSignature);
+    }
+
+    function isOrderCancelled(bytes calldata orderSignature) external view returns (bool) {
+        return _cancelledOrder[keccak256(orderSignature)];
     }
 
     receive() external payable{}
