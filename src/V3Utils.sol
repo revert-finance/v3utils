@@ -167,7 +167,7 @@ contract V3Utils is IERC721Receiver, Common {
 
             emit WithdrawAndCollectAndSwap(address(nfpm), tokenId, instructions.targetToken, targetAmount);
         } else {
-            revert NotSupportedWhatToDo();
+            revert NotSupportedAction();
         }
         
         // return token to owner (this line guarantees that token is returned to originating owner)

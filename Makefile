@@ -2,7 +2,7 @@ ifneq (,$(wildcard ./.env))
     include .env
     export
 endif
-build: src/V3Utils.sol
+build: src/V3Utils.sol clean
 	forge build
 test: src/V3Utils.sol test/*
 	forge test

@@ -52,13 +52,10 @@ abstract contract Common is AccessControl, Pausable {
     uint256 internal constant Q96 = 2 ** 96;
     
     // error types
-    error Unauthorized();
-    error WrongContract();
     error SelfSend();
-    error NotSupportedWhatToDo();
     error NotSupportedAction();
+    error NotSupportedProtocol();
     error SameToken();
-    error SwapFailed();
     error AmountError();
     error SlippageError();
     error CollectError();
@@ -68,6 +65,9 @@ abstract contract Common is AccessControl, Pausable {
     error NoEtherToken();
     error NotWETH();
     error TooMuchFee();
+    error AlreadyInitialised();
+    error GetPositionFailed();
+    error NoFees();
 
 
     struct DeducteFeesEventData {
@@ -104,7 +104,7 @@ abstract contract Common is AccessControl, Pausable {
     bool private _initialized = false;
     function initialize(address router, address admin, address withdrawer) public virtual {
         if (_initialized) {
-            revert("already initialized!");
+            revert AlreadyInitialised();
         }
         if (withdrawer == address(0)) {
             revert();
@@ -377,7 +377,7 @@ abstract contract Common is AccessControl, Pausable {
                 params.deadline
             ));
         } else {
-            revert("Invalid protocol");
+            revert NotSupportedProtocol();
         }
         params.nfpm.transferFrom(address(this), params.recipient, result.tokenId);
         emit SwapAndMint(address(params.nfpm), result.tokenId, result.liquidity, result.added0, result.added1);
@@ -531,7 +531,7 @@ abstract contract Common is AccessControl, Pausable {
             // execute swap
             (bool success,) = swapRouter.call(swapData);
             if (!success) {
-                revert SwapFailed();
+                revert ("swap failed!");
             }
 
             // reset approval
@@ -620,14 +620,14 @@ abstract contract Common is AccessControl, Pausable {
         } else if (protocol == Protocol.ALGEBRA_V1) {
             weth = IWETH9(nfpm.WNativeToken());
         } else {
-            revert("invalid protocol");
+            revert NotSupportedProtocol();
         }
     }
 
     function _getPosition(INonfungiblePositionManager nfpm, Protocol protocol, uint256 tokenId) internal returns (address token0, address token1, uint128 liquidity, int24 tickLower, int24 tickUpper, uint24 fee) {
         (bool success, bytes memory data) = address(nfpm).call(abi.encodeWithSignature("positions(uint256)", tokenId));
         if (!success) {
-            revert("v3utils: call get position failed");
+            revert GetPositionFailed();
         }
         if (protocol == Protocol.UNI_V3) {
             (,, token0, token1, fee,tickLower, tickUpper, liquidity,,,,) = abi.decode(data, (uint96,address,address,address,uint24,int24,int24,uint128,uint256,uint256,uint128,uint128));
@@ -648,7 +648,7 @@ abstract contract Common is AccessControl, Pausable {
 
         // to save gas, we always need to check if fee exists before deducteFees
         if (params.feeX64 == 0) {
-            revert("no fee to duducte!");
+            revert NoFees();
         }
 
         if (params.amount0 > 0) {

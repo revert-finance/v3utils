@@ -826,7 +826,7 @@ contract V3UtilsIntegrationTest is IntegrationTestBase {
         vm.startPrank(TEST_NFT_ACCOUNT);
         USDC.approve(address(v3utils), 1000000);
 
-        vm.expectRevert(Common.SwapFailed.selector);
+        vm.expectRevert("swap failed!");
         v3utils.swap(params);
         vm.stopPrank();
     }
