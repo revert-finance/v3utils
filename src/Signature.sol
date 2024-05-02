@@ -2,7 +2,6 @@
 pragma solidity ^0.8.0;
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "./EIP712.sol";
-import "forge-std/console.sol";
 
 abstract contract Signature is EIP712 {
 

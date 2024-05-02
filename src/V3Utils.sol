@@ -2,7 +2,6 @@
 pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
-import "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import "./Common.sol";
 
 /// @title v3Utils v1.0
@@ -10,10 +9,6 @@ import "./Common.sol";
 /// This is a completely ownerless/stateless contract - does not hold any ERC20 or NFTs.
 /// It can be simply redeployed when new / better functionality is implemented
 contract V3Utils is IERC721Receiver, Common {
-
-    using SafeCast for uint256;
-    /// @notice Constructor
-    /// @param _swapRouter Krystal Exchange Proxy
 
     /// @notice Action which should be executed on provided NFT
     enum WhatToDo {
@@ -106,7 +101,7 @@ contract V3Utils is IERC721Receiver, Common {
        
         // take protocol fees
         if (instructions.protocolFeeX64 > 0) {
-            (amount0, amount1,,,,) = _deducteFees(DeducteFeesParams(amount0, amount1, 0, instructions.protocolFeeX64, FeeType.PROTOCOL_FEE, address(nfpm), tokenId, instructions.recipient, token0, token1, address(0)), true);
+            (amount0, amount1,,,,) = _deductFees(DeductFeesParams(amount0, amount1, 0, instructions.protocolFeeX64, FeeType.PROTOCOL_FEE, address(nfpm), tokenId, instructions.recipient, token0, token1, address(0)), true);
         }
        
         // check if enough tokens are available for swaps
@@ -226,7 +221,7 @@ contract V3Utils is IERC721Receiver, Common {
         _prepareSwap(weth, params.token0, params.token1, params.swapSourceToken, params.amount0, params.amount1, params.amount2);
         SwapAndMintParams memory _params = params;
         if (params.protocolFeeX64 > 0) {
-            (_params.amount0, _params.amount1, _params.amount2,,,) = _deducteFees(DeducteFeesParams(params.amount0, params.amount1, params.amount2, params.protocolFeeX64, FeeType.PROTOCOL_FEE, address(params.nfpm), 0, params.recipient, address(params.token0), address(params.token1), address(params.swapSourceToken)), false);
+            (_params.amount0, _params.amount1, _params.amount2,,,) = _deductFees(DeductFeesParams(params.amount0, params.amount1, params.amount2, params.protocolFeeX64, FeeType.PROTOCOL_FEE, address(params.nfpm), 0, params.recipient, address(params.token0), address(params.token1), address(params.swapSourceToken)), false);
             // swap source token is not token 0 and token 1
             if (_params.swapSourceToken != _params.token0 && _params.swapSourceToken != _params.token1) {
                 if (_params.amountIn0 + _params.amountIn1 > _params.amount2) {
@@ -253,7 +248,7 @@ contract V3Utils is IERC721Receiver, Common {
         _prepareSwap(weth, IERC20(token0), IERC20(token1), params.swapSourceToken, params.amount0, params.amount1, params.amount2);
         SwapAndIncreaseLiquidityParams memory _params = params;
         if (params.protocolFeeX64 > 0) {
-            (_params.amount0, _params.amount1, _params.amount2,,,) = _deducteFees(DeducteFeesParams(params.amount0, params.amount1, params.amount2, params.protocolFeeX64, FeeType.PROTOCOL_FEE, address(params.nfpm), params.tokenId, params.recipient, token0, token1, address(params.swapSourceToken)), true);
+            (_params.amount0, _params.amount1, _params.amount2,,,) = _deductFees(DeductFeesParams(params.amount0, params.amount1, params.amount2, params.protocolFeeX64, FeeType.PROTOCOL_FEE, address(params.nfpm), params.tokenId, params.recipient, token0, token1, address(params.swapSourceToken)), true);
             // swap source token is not token 0 and token 1
             if (address(_params.swapSourceToken) != token0 && address(_params.swapSourceToken) != token1) {
                 if (_params.amountIn0 + _params.amountIn1 > _params.amount2) {

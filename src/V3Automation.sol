@@ -109,17 +109,17 @@ contract V3Automation is Pausable, Common, Signature {
 
         (state.amount0, state.amount1) = _decreaseLiquidityAndCollectFees(DecreaseAndCollectFeesParams(params.nfpm, IERC20(state.token0), IERC20(state.token1), params.tokenId, params.liquidity, params.deadline, params.amountRemoveMin0, params.amountRemoveMin1, params.compoundFees));
 
-        // deducte fees
+        // deduct fees
         {
             uint256 gasFeeAmount0;
             uint256 gasFeeAmount1;
             if (params.gasFeeX64 > 0) {
-                (,,, gasFeeAmount0, gasFeeAmount1,) = _deducteFees(DeducteFeesParams(state.amount0, state.amount1, 0, params.gasFeeX64, FeeType.GAS_FEE, address(params.nfpm), params.tokenId, params.userAddress, state.token0, state.token1, address(0)), true);
+                (,,, gasFeeAmount0, gasFeeAmount1,) = _deductFees(DeductFeesParams(state.amount0, state.amount1, 0, params.gasFeeX64, FeeType.GAS_FEE, address(params.nfpm), params.tokenId, params.userAddress, state.token0, state.token1, address(0)), true);
             }
             uint256 protocolFeeAmount0;
             uint256 protocolFeeAmount1;
             if (params.protocolFeeX64 > 0) {
-                (,,, protocolFeeAmount0, protocolFeeAmount1,) = _deducteFees(DeducteFeesParams(state.amount0, state.amount1, 0, params.protocolFeeX64, FeeType.PROTOCOL_FEE, address(params.nfpm), params.tokenId, params.userAddress, state.token0, state.token1, address(0)), true);
+                (,,, protocolFeeAmount0, protocolFeeAmount1,) = _deductFees(DeductFeesParams(state.amount0, state.amount1, 0, params.protocolFeeX64, FeeType.PROTOCOL_FEE, address(params.nfpm), params.tokenId, params.userAddress, state.token0, state.token1, address(0)), true);
             }
             state.amount0 = state.amount0 - gasFeeAmount0 - protocolFeeAmount0;
             state.amount1 = state.amount1 - gasFeeAmount1 - protocolFeeAmount1;

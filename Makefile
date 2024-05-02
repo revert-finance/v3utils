@@ -8,7 +8,7 @@ test: src/V3Utils.sol test/*
 	forge test
 .PHONY: clean
 clean:
-	forge clean
+	forge clean && rm -rf cache
 v3utils:
 	$(eval CONTRACT=V3Utils)
 v3automation:

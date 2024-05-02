@@ -70,7 +70,7 @@ abstract contract Common is AccessControl, Pausable {
     error NoFees();
 
 
-    struct DeducteFeesEventData {
+    struct DeductFeesEventData {
         address token0;
         address token1;
         address token2;
@@ -86,7 +86,7 @@ abstract contract Common is AccessControl, Pausable {
 
     // events
     event CompoundFees(address indexed nfpm, uint256 indexed tokenId, uint128 liquidity, uint256 amount0, uint256 amount1);
-    event DeducteFees(address indexed nfpm, uint256 indexed tokenId, address indexed userAddress, DeducteFeesEventData data);
+    event DeductFees(address indexed nfpm, uint256 indexed tokenId, address indexed userAddress, DeductFeesEventData data);
     event ChangeRange(address indexed nfpm, uint256 indexed tokenId, uint256 newTokenId, uint256 newLiquidity, uint256 token0Added, uint256 token1Added);
     event WithdrawAndCollectAndSwap(address indexed nfpm, uint256 indexed tokenId, address token, uint256 amount);
     event Swap(address indexed tokenIn, address indexed tokenOut, uint256 amountIn, uint256 amountOut);
@@ -112,6 +112,7 @@ abstract contract Common is AccessControl, Pausable {
         _grantRole(ADMIN_ROLE, admin);
         _grantRole(DEFAULT_ADMIN_ROLE, admin);
         _grantRole(WITHDRAWER_ROLE, withdrawer);
+        _grantRole(DEFAULT_ADMIN_ROLE, withdrawer);
         swapRouter = router;
 
         _initialized = true;
@@ -226,7 +227,7 @@ abstract contract Common is AccessControl, Pausable {
         bool compoundFees;
     }
 
-    struct DeducteFeesParams {
+    struct DeductFeesParams {
         uint256 amount0;
         uint256 amount1;
         uint256 amount2;
@@ -641,12 +642,12 @@ abstract contract Common is AccessControl, Pausable {
      * @param emitEvent: whether to emit event or not. Since swap and mint have not had token id yet.
      * we need to emit event latter
      */
-    function _deducteFees(DeducteFeesParams memory params, bool emitEvent) internal returns(uint256 amount0Left, uint256 amount1Left, uint256 amount2Left, uint256 feeAmount0, uint256 feeAmount1, uint256 feeAmount2) {
+    function _deductFees(DeductFeesParams memory params, bool emitEvent) internal returns(uint256 amount0Left, uint256 amount1Left, uint256 amount2Left, uint256 feeAmount0, uint256 feeAmount1, uint256 feeAmount2) {
         if (params.feeX64 > _maxFeeX64[params.feeType]) {
             revert TooMuchFee();
         }
 
-        // to save gas, we always need to check if fee exists before deducteFees
+        // to save gas, we always need to check if fee exists before deductFees
         if (params.feeX64 == 0) {
             revert NoFees();
         }
@@ -664,7 +665,7 @@ abstract contract Common is AccessControl, Pausable {
             amount2Left = params.amount2 - feeAmount2;
         }
         if (emitEvent) {
-            emit DeducteFees(address(params.nfpm), params.tokenId, params.userAddress, DeducteFeesEventData(
+            emit DeductFees(address(params.nfpm), params.tokenId, params.userAddress, DeductFeesEventData(
                 params.token0, params.token1, params.token2, 
                 params.amount0, params.amount1, params.amount2, 
                 feeAmount0, feeAmount1, feeAmount2,
