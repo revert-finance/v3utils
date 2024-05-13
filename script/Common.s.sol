@@ -40,7 +40,7 @@ abstract contract CommonScript is Script {
     constructor() {
         salt = keccak256(bytes(vm.envString("SALT_SEED")));
         krystalRouter = vm.envAddress("KRYSTAL_ROUTER");
-        admin = vm.envAddress("ADMIN_ADDRESS");
+        admin = vm.envAddress("WITHDRAWER"); // for now, admin is the withdrawer
         withdrawer = vm.envAddress("WITHDRAWER");
         console.log("SALT:");
         console.logBytes32(salt);

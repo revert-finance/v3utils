@@ -97,7 +97,7 @@ contract V3Utils is IERC721Receiver, Common {
 
         (address token0,address token1,,,,uint24 fee) = _getPosition(nfpm, instructions.protocol, tokenId);
 
-        (uint256 amount0, uint256 amount1) = _decreaseLiquidityAndCollectFees(DecreaseAndCollectFeesParams(nfpm, IERC20(token0), IERC20(token1), tokenId, instructions.liquidity, instructions.deadline, instructions.amountRemoveMin0, instructions.amountRemoveMin1, instructions.compoundFees));
+        (uint256 amount0, uint256 amount1) = _decreaseLiquidityAndCollectFees(DecreaseAndCollectFeesParams(nfpm, instructions.recipient, IERC20(token0), IERC20(token1), tokenId, instructions.liquidity, instructions.deadline, instructions.amountRemoveMin0, instructions.amountRemoveMin1, instructions.compoundFees));
        
         // take protocol fees
         if (instructions.protocolFeeX64 > 0) {

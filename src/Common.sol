@@ -217,6 +217,7 @@ abstract contract Common is AccessControl, Pausable {
 
     struct DecreaseAndCollectFeesParams {
         INonfungiblePositionManager nfpm;
+        address userAddress;
         IERC20 token0;
         IERC20 token1;
         uint256 tokenId; 
@@ -604,10 +605,10 @@ abstract contract Common is AccessControl, Pausable {
                 uint256 fees1Return = amount1 - positionAmount1;
                 // return feesToken
                 if (fees0Return > 0) {
-                    params.token0.transfer(msg.sender, fees0Return);
+                    params.token0.transfer(params.userAddress, fees0Return);
                 }
                 if (fees1Return > 0) {
-                    params.token1.transfer(msg.sender, fees1Return);
+                    params.token1.transfer(params.userAddress, fees1Return);
                 }
             }
             amount0 = positionAmount0;
