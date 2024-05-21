@@ -2,16 +2,26 @@ ifneq (,$(wildcard ./.env))
     include .env
     export
 endif
-
-build: src/V3Utils.sol
+build: src/V3Utils.sol clean
 	forge build
 test: src/V3Utils.sol test/*
 	forge test
-deploy-v3utils: 
-	forge script script/V3Utils.s.sol:V3UtilsScript --rpc-url $(RPC_URL) --broadcast
-deploy-v3auto:
-	forge script script/V3Automation.s.sol:V3AutomationScript --rpc-url $(RPC_URL) --legacy --broadcast
+.PHONY: clean
+clean:
+	forge clean && rm -rf cache
+v3utils:
+	$(eval CONTRACT=V3Utils)
+v3automation:
+	$(eval CONTRACT=V3Automation)
+deploy-v3utils:
+deploy-v3automation:
+deploy-%: % clean
+	forge script script/$(CONTRACT).s.sol:$(CONTRACT)Script --rpc-url $(RPC_URL) --broadcast
 verify-v3utils:
-	forge script script/ComputeAddress.s.sol:VerifyV3UtilsScript 
 verify-v3automation:
-	forge script script/ComputeAddress.s.sol:ComputeAddressScript 
+verify-%: %
+	forge script script/Verify.s.sol:Verify$(CONTRACT)Script | awk 'END{print}' | bash
+init-v3utils:
+init-v3automation:
+init-%: %
+	forge script script/Init.s.sol:$(CONTRACT)InitializeScript --rpc-url $(RPC_URL) --broadcast
