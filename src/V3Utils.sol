@@ -220,8 +220,14 @@ contract V3Utils is IERC721Receiver, Common {
         IWETH9 weth = _getWeth9(params.nfpm, params.protocol);
         _prepareSwap(weth, params.token0, params.token1, params.swapSourceToken, params.amount0, params.amount1, params.amount2);
         SwapAndMintParams memory _params = params;
+
+        DeductFeesEventData memory eventData;
         if (params.protocolFeeX64 > 0) {
-            (_params.amount0, _params.amount1, _params.amount2,,,) = _deductFees(DeductFeesParams(params.amount0, params.amount1, params.amount2, params.protocolFeeX64, FeeType.PROTOCOL_FEE, address(params.nfpm), 0, params.recipient, address(params.token0), address(params.token1), address(params.swapSourceToken)), false);
+            uint256 feeAmount0;
+            uint256 feeAmount1;
+            uint256 feeAmount2;
+            // since we do not have the tokenId here, we need to emit event later
+            (_params.amount0, _params.amount1, _params.amount2, feeAmount0, feeAmount1, feeAmount2) = _deductFees(DeductFeesParams(params.amount0, params.amount1, params.amount2, params.protocolFeeX64, FeeType.PROTOCOL_FEE, address(params.nfpm), 0, params.recipient, address(params.token0), address(params.token1), address(params.swapSourceToken)), false);
             // swap source token is not token 0 and token 1
             if (_params.swapSourceToken != _params.token0 && _params.swapSourceToken != _params.token1) {
                 if (_params.amountIn0 + _params.amountIn1 > _params.amount2) {
@@ -233,8 +239,23 @@ contract V3Utils is IERC721Receiver, Common {
                     _transferToken(weth, msg.sender, _params.swapSourceToken, leftOverAmount, msg.value != 0);
                 }
             }
+
+            eventData = DeductFeesEventData({
+                token0: address(params.token0),
+                token1: address(params.token1),
+                token2: address(params.swapSourceToken),
+                amount0: params.amount0,
+                amount1: params.amount1,
+                amount2: params.amount2,
+                feeAmount0: feeAmount0,
+                feeAmount1: feeAmount1,
+                feeAmount2: feeAmount2,
+                feeX64: params.protocolFeeX64,
+                feeType: FeeType.PROTOCOL_FEE
+            });
         }
         result = _swapAndMint(_params, msg.value != 0);
+        emit DeductFees(address(params.nfpm), result.tokenId, params.recipient, eventData);
     }
 
     /// @notice Does 1 or 2 swaps from swapSourceToken to token0 and token1 and adds as much as possible liquidity to any existing position (no need to be position owner).
