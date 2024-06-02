@@ -607,10 +607,10 @@ abstract contract Common is AccessControl, Pausable {
                 uint256 fees1Return = amount1 - positionAmount1;
                 // return feesToken
                 if (fees0Return > 0) {
-                    SafeERC20.safeTransfer(address(params.token0), params.userAddress, fees0Return);
+                    SafeERC20.safeTransfer(params.token0, params.userAddress, fees0Return);
                 }
                 if (fees1Return > 0) {
-                    SafeERC20.safeTransfer(address(params.token1), params.userAddress, fees1Return);
+                    SafeERC20.safeTransfer(params.token1, params.userAddress, fees1Return);
                 }
             }
             amount0 = positionAmount0;
@@ -699,12 +699,16 @@ abstract contract Common is AccessControl, Pausable {
     /// we try to set allowance = 0 before approve new amount. if it revert means that
     /// the token not allow to approve 0, which means the following line code will work properly
     function _safeResetAndApprove(IERC20 token, address _spender, uint256 _value) internal {
-        try address(token).functionCall(abi.encodeWithSelector(token.approve.selector, _spender, 0), "SafeERC20: low-level call approve failed") {} catch {}
+        /// @dev ommited approve(0) result because it might fail and does not break the flow
+        token.call(abi.encodeWithSelector(token.approve.selector, _spender, _value));
+
+        /// @dev value for approval after reset must greater than 0
+        require(_value > 0);
         _safeApprove(token, _spender, _value);
     }
 
     function _safeApprove(IERC20 token, address _spender, uint256 _value) internal {
-        bytes memory returnData = address(token).functionCall(abi.encodeWithSelector(token.approve.selector, _spender, _value), "SafeERC20: low-level call approve failed");
+        bytes memory returnData = address(token).functionCall(abi.encodeWithSelector(token.approve.selector, _spender, _value));
         if (returnData.length > 0) { // Return data is optional
             require(abi.decode(returnData, (bool)), "SafeERC20: ERC20 operation did not succeed");
         }
