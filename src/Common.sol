@@ -7,6 +7,7 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "v3-core/libraries/FullMath.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
+// import "@openzeppelin/contracts/utils/Address.sol";
 
 interface INonfungiblePositionManager is univ3.INonfungiblePositionManager {
     /// @notice mintParams for algebra v1
@@ -46,6 +47,8 @@ interface INonfungiblePositionManager is univ3.INonfungiblePositionManager {
 }
 
 abstract contract Common is AccessControl, Pausable {
+    using Address for address;
+
     bytes32 public constant WITHDRAWER_ROLE = keccak256("WITHDRAWER_ROLE");
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
     uint256 internal constant Q64 = 2 ** 64;
@@ -485,10 +488,10 @@ abstract contract Common is AccessControl, Pausable {
         }
 
         if (total0 != 0) {
-            params.token0.approve(address(params.nfpm), total0);
+            _safeResetAndApprove(params.token0, address(params.nfpm), total0);
         }
         if (total1 != 0) {
-            params.token1.approve(address(params.nfpm), total1);
+            _safeResetAndApprove(params.token1, address(params.nfpm), total1);
         }
     }
 
@@ -529,7 +532,7 @@ abstract contract Common is AccessControl, Pausable {
             uint256 balanceOutBefore = tokenOut.balanceOf(address(this));
 
             // approve needed amount
-            tokenIn.approve(swapRouter, amountIn);
+            _safeApprove(tokenIn, swapRouter, amountIn);
             // execute swap
             (bool success,) = swapRouter.call(swapData);
             if (!success) {
@@ -537,7 +540,7 @@ abstract contract Common is AccessControl, Pausable {
             }
 
             // reset approval
-            tokenIn.approve(swapRouter, 0);
+            _safeApprove(tokenIn, swapRouter, 0);
 
             uint256 balanceInAfter = tokenIn.balanceOf(address(this));
             uint256 balanceOutAfter = tokenOut.balanceOf(address(this));
@@ -605,10 +608,10 @@ abstract contract Common is AccessControl, Pausable {
                 uint256 fees1Return = amount1 - positionAmount1;
                 // return feesToken
                 if (fees0Return > 0) {
-                    params.token0.transfer(params.userAddress, fees0Return);
+                    SafeERC20.safeTransfer(address(params.token0), params.userAddress, fees0Return);
                 }
                 if (fees1Return > 0) {
-                    params.token1.transfer(params.userAddress, fees1Return);
+                    SafeERC20.safeTransfer(address(params.token1), params.userAddress, fees1Return);
                 }
             }
             amount0 = positionAmount0;
@@ -690,5 +693,21 @@ abstract contract Common is AccessControl, Pausable {
 
     function getMaxFeeX64(FeeType feeType) public view returns (uint64) {
         return _maxFeeX64[feeType];
+    }
+
+    /// @dev some tokens require allowance == 0 to approve new amount
+    /// but some tokens does not aloow approve ammount = 0
+    /// we try to set allowence = 0 before approve new amount. if it revert means that
+    /// the token not allow to approve 0, which means the following line code will work properly
+    function _safeResetAndApprove(IERC20 token, address _spender, uint256 _value) internal {
+        try address(token).functionCall(abi.encodeWithSelector(token.approve.selector, _spender, 0), "SafeERC20: low-level call approve failed") {} catch {}
+        _safeApprove(token, _spender, _value);
+    }
+
+    function _safeApprove(IERC20 token, address _spender, uint256 _value) internal {
+        bytes memory returnData = address(token).functionCall(abi.encodeWithSelector(token.approve.selector, _spender, _value), "SafeERC20: low-level call approve failed");
+        if (returnData.length > 0) { // Return data is optional
+            require(abi.decode(returnData, (bool)), "SafeERC20: ERC20 operation did not succeed");
+        }
     }
 }
