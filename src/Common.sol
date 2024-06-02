@@ -7,7 +7,6 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "v3-core/libraries/FullMath.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
-// import "@openzeppelin/contracts/utils/Address.sol";
 
 interface INonfungiblePositionManager is univ3.INonfungiblePositionManager {
     /// @notice mintParams for algebra v1
@@ -696,8 +695,8 @@ abstract contract Common is AccessControl, Pausable {
     }
 
     /// @dev some tokens require allowance == 0 to approve new amount
-    /// but some tokens does not aloow approve ammount = 0
-    /// we try to set allowence = 0 before approve new amount. if it revert means that
+    /// but some tokens does not allow approve ammount = 0
+    /// we try to set allowance = 0 before approve new amount. if it revert means that
     /// the token not allow to approve 0, which means the following line code will work properly
     function _safeResetAndApprove(IERC20 token, address _spender, uint256 _value) internal {
         try address(token).functionCall(abi.encodeWithSelector(token.approve.selector, _spender, 0), "SafeERC20: low-level call approve failed") {} catch {}
