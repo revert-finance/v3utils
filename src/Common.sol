@@ -700,7 +700,7 @@ abstract contract Common is AccessControl, Pausable {
     /// the token not allow to approve 0, which means the following line code will work properly
     function _safeResetAndApprove(IERC20 token, address _spender, uint256 _value) internal {
         /// @dev ommited approve(0) result because it might fail and does not break the flow
-        token.call(abi.encodeWithSelector(token.approve.selector, _spender, _value));
+        token.call(abi.encodeWithSelector(token.approve.selector, _spender, 0));
 
         /// @dev value for approval after reset must greater than 0
         require(_value > 0);
