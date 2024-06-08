@@ -183,33 +183,6 @@ contract V3Utils is IERC721Receiver, Common {
         bool unwrap; // if tokenIn or tokenOut is WETH - unwrap
     }
 
-    /// @notice Swaps amountIn of tokenIn for tokenOut - returning at least minAmountOut
-    /// @param params Swap configuration
-    /// If tokenIn is wrapped native token - both the token or the wrapped token can be sent (the sum of both must be equal to amountIn)
-    /// Optionally unwraps any wrapped native token and returns native token instead
-    function swap(SwapParams calldata params)  whenNotPaused() external payable returns (uint256 amountOut) {
-
-        if (params.tokenIn == params.tokenOut) {
-            revert SameToken();
-        }
-
-        _prepareSwap(params.weth, params.tokenIn, IERC20(address(0)), IERC20(address(0)), params.amountIn, 0, 0);
-
-        uint256 amountInDelta;
-        (amountInDelta, amountOut) = _swap(params.tokenIn, params.tokenOut, params.amountIn, params.minAmountOut, params.swapData);
-
-        // send swapped amount of tokenOut
-        if (amountOut != 0) {
-            _transferToken(params.weth, params.recipient, params.tokenOut, amountOut, params.unwrap);
-        }
-
-        // if not all was swapped - return leftovers of tokenIn
-        uint256 leftOver = params.amountIn - amountInDelta;
-        if (leftOver != 0) {
-            _transferToken(params.weth, params.recipient, params.tokenIn, leftOver, params.unwrap);
-        }
-    }
-
     /// @notice Does 1 or 2 swaps from swapSourceToken to token0 and token1 and adds as much as possible liquidity to a newly minted position.
     /// @param params Swap and mint configuration
     /// Newly minted NFT and leftover tokens are returned to recipient
@@ -218,6 +191,14 @@ contract V3Utils is IERC721Receiver, Common {
             revert SameToken();
         }
         IWETH9 weth = _getWeth9(params.nfpm, params.protocol);
+
+        // validate if amount2 is enough for action
+        if (params.swapSourceToken != params.token0 
+            && params.swapSourceToken != params.token1
+            && params.amountIn0 + params.amountIn1 > params.amount2
+        ) {
+            revert AmountError();
+        }
         _prepareSwap(weth, params.token0, params.token1, params.swapSourceToken, params.amount0, params.amount1, params.amount2);
         SwapAndMintParams memory _params = params;
 
@@ -266,15 +247,21 @@ contract V3Utils is IERC721Receiver, Common {
         require(owner == msg.sender, "sender is not owner of position");
         (address token0,address token1,,,,) = _getPosition(params.nfpm, params.protocol, params.tokenId);
         IWETH9 weth = _getWeth9(params.nfpm, params.protocol);
+
+        // validate if amount2 is enough for action
+        if (address(params.swapSourceToken) != token0
+            && address(params.swapSourceToken) != token1
+            && params.amountIn0 + params.amountIn1 > params.amount2
+        ) {
+            revert AmountError();
+        }
+
         _prepareSwap(weth, IERC20(token0), IERC20(token1), params.swapSourceToken, params.amount0, params.amount1, params.amount2);
         SwapAndIncreaseLiquidityParams memory _params = params;
         if (params.protocolFeeX64 > 0) {
             (_params.amount0, _params.amount1, _params.amount2,,,) = _deductFees(DeductFeesParams(params.amount0, params.amount1, params.amount2, params.protocolFeeX64, FeeType.PROTOCOL_FEE, address(params.nfpm), params.tokenId, params.recipient, token0, token1, address(params.swapSourceToken)), true);
             // swap source token is not token 0 and token 1
             if (address(_params.swapSourceToken) != token0 && address(_params.swapSourceToken) != token1) {
-                if (_params.amountIn0 + _params.amountIn1 > _params.amount2) {
-                    revert AmountError();
-                }
                 if (_params.amountIn0 + _params.amountIn1 < _params.amount2) {
                     uint256 leftOverAmount = _params.amount2 - (_params.amountIn0 + _params.amountIn1);
                     // return un-needed tokens
@@ -285,6 +272,7 @@ contract V3Utils is IERC721Receiver, Common {
 
         result = _swapAndIncrease(_params, IERC20(token0), IERC20(token1), msg.value != 0);
     }
+
     // needed for WETH unwrapping
     receive() external payable{}
 }
