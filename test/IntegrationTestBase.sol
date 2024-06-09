@@ -52,13 +52,16 @@ abstract contract IntegrationTestBase is Test {
 
     function _setupBase() internal {
 
-        mainnetFork = vm.createFork("https://rpc.ankr.com/arbitrum", 171544977);
+        mainnetFork = vm.createFork("https://arbitrum.blockpi.network/v1/rpc/b4669492ccb82744ee8b01efcfde2e9fa0070392", 171544977);
         vm.selectFork(mainnetFork);
-
+        vm.startBroadcast(TEST_OWNER_ACCOUNT);
+        
         v3utils = new V3Utils();
-        v3utils.initialize(KRYSTAL_ROUTER, TEST_OWNER_ACCOUNT, TEST_OWNER_ACCOUNT, TEST_OWNER_ACCOUNT);
+        v3utils.initialize(KRYSTAL_ROUTER, TEST_OWNER_ACCOUNT, TEST_OWNER_ACCOUNT, TEST_OWNER_ACCOUNT, _getNfpms());
         v3automation = new V3Automation();
-        v3automation.initialize(KRYSTAL_ROUTER, TEST_OWNER_ACCOUNT, TEST_OWNER_ACCOUNT, TEST_OWNER_ACCOUNT);
+        v3automation.initialize(KRYSTAL_ROUTER, TEST_OWNER_ACCOUNT, TEST_OWNER_ACCOUNT, TEST_OWNER_ACCOUNT, _getNfpms());
+
+        vm.stopBroadcast();
     }
 
     function _writeTokenBalance(address who, address token, uint256 amt) internal {
@@ -153,5 +156,10 @@ abstract contract IntegrationTestBase is Test {
 
     function _getInvalidSwapData() internal view returns (bytes memory) {
         return abi.encode(address(v3utils), hex"1234567890");
+    }
+
+    function _getNfpms() internal pure returns (address[] memory nfpms) {
+        nfpms = new address[](1);
+        nfpms[0] = 0xC36442b4a4522E871399CD717aBDD847Ab11FE88;
     }
 }
