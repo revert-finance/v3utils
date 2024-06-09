@@ -13,8 +13,8 @@ contract V3Automation is Pausable, Common, Signature {
 
     constructor() Signature("V3AutomationOrder", "1.0") {}
 
-    function initialize(address _swapRouter, address admin, address withdrawer, address feeTaker) public override  {
-        super.initialize(_swapRouter, admin, withdrawer, feeTaker);
+    function initialize(address _swapRouter, address admin, address withdrawer, address feeTaker, address[] calldata whitelistedNfpms) public override  {
+        super.initialize(_swapRouter, admin, withdrawer, feeTaker, whitelistedNfpms);
         _grantRole(OPERATOR_ROLE, admin);
     }
 

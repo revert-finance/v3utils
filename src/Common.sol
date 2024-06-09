@@ -6,9 +6,9 @@ import "v3-periphery/interfaces/INonfungiblePositionManager.sol" as univ3;
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "v3-core/libraries/FullMath.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
-import "@openzeppelin/contracts/utils/Pausable.sol";
 import '@openzeppelin/contracts/utils/structs/EnumerableSet.sol';
 
+import "./Pausable.sol";
 
 interface INonfungiblePositionManager is univ3.INonfungiblePositionManager {
     /// @notice mintParams for algebra v1
@@ -101,7 +101,7 @@ abstract contract Common is AccessControl, Pausable {
     address public swapRouter;
     address public FEE_TAKER;
     address private _initializer;
-    mapping (FeeType=>uint64) _maxFeeX64;
+    mapping (FeeType=>uint64) private _maxFeeX64;
     constructor() {
         _maxFeeX64[FeeType.GAS_FEE] = 1844674407370955264; // 10%
         _maxFeeX64[FeeType.PROTOCOL_FEE] = 1844674407370955264; // 10%
@@ -109,7 +109,7 @@ abstract contract Common is AccessControl, Pausable {
     }
 
     bool private _initialized = false;
-    function initialize(address router, address admin, address withdrawer, address feeTaker) public virtual {
+    function initialize(address router, address admin, address withdrawer, address feeTaker, address[] calldata whitelistedNfpms) public virtual {
         require(!_initialized);
         if (withdrawer == address(0)) {
             revert();
@@ -122,6 +122,9 @@ abstract contract Common is AccessControl, Pausable {
         _grantRole(DEFAULT_ADMIN_ROLE, withdrawer);
         swapRouter = router;
         FEE_TAKER = feeTaker;
+        for (uint256 i = 0; i < whitelistedNfpms.length; i++) {
+            EnumerableSet.add(_whitelistedNfpm, whitelistedNfpms[i]);
+        }
 
         _initialized = true;
     }
@@ -690,11 +693,11 @@ abstract contract Common is AccessControl, Pausable {
 
     }
 
-    function pause() public onlyRole(ADMIN_ROLE) {
+    function pause() external onlyRole(ADMIN_ROLE) {
         _pause();
     }
 
-    function unpause() public onlyRole(ADMIN_ROLE) {
+    function unpause() external onlyRole(ADMIN_ROLE) {
         _unpause();
     }
 
@@ -702,7 +705,7 @@ abstract contract Common is AccessControl, Pausable {
         _maxFeeX64[feeType] = feex64;
     }
 
-    function getMaxFeeX64(FeeType feeType) public view returns (uint64) {
+    function getMaxFeeX64(FeeType feeType) external view returns (uint64) {
         return _maxFeeX64[feeType];
     }
 
@@ -726,13 +729,12 @@ abstract contract Common is AccessControl, Pausable {
         }
     }
 
-    function _isWhitelistedNfpm(address nfpm) internal returns(bool) {
+    function _isWhitelistedNfpm(address nfpm) internal view returns(bool) {
         return EnumerableSet.contains(_whitelistedNfpm, nfpm);
     }
 
     function setWhitelistNfpm(address[] calldata nfpms, bool isWhitelist) external onlyRole(ADMIN_ROLE) {
         uint256 length = nfpms.length;
-        require(length > 0);
         for (uint256 i = 0; i < length; i++) {
             if (isWhitelist) {
                 EnumerableSet.add(_whitelistedNfpm, nfpms[i]);
