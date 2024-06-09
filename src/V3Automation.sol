@@ -6,10 +6,6 @@ import "./Signature.sol";
 
 contract V3Automation is Pausable, Common, Signature {
 
-    error SameRange();
-    error LiquidityChanged();
-    error OrderCancelled();
-
     event CancelOrder(address user, Order order, bytes signature);
 
     bytes32 public constant OPERATOR_ROLE = keccak256("OPERATOR_ROLE");
@@ -93,6 +89,7 @@ contract V3Automation is Pausable, Common, Signature {
     }
 
     function executeWithPermit(ExecuteParams calldata params, uint8 v, bytes32 r, bytes32 s) public payable onlyRole(OPERATOR_ROLE) whenNotPaused() {
+        require(_isWhitelistedNfpm(address(params.nfpm)));
         _validateOrder(params.userOrder, params.orderSignature, params.userAddress);
         params.nfpm.permit(address(this), params.tokenId, params.deadline, v, r, s);
         _execute(params);
@@ -104,9 +101,7 @@ contract V3Automation is Pausable, Common, Signature {
         ExecuteState memory state;
         (state.token0, state.token1, state.liquidity, state.tickLower, state.tickUpper, state.fee) = _getPosition(params.nfpm, params.protocol, params.tokenId);
 
-        if (state.liquidity != params.liquidity && params.liquidity != 0) {
-            revert LiquidityChanged();
-        }
+        require(state.liquidity != params.liquidity || params.liquidity != 0);
 
         (state.amount0, state.amount1) = _decreaseLiquidityAndCollectFees(DecreaseAndCollectFeesParams(params.nfpm, params.userAddress, IERC20(state.token0), IERC20(state.token1), params.tokenId, params.liquidity, params.deadline, params.amountRemoveMin0, params.amountRemoveMin1, params.compoundFees));
 
@@ -127,9 +122,7 @@ contract V3Automation is Pausable, Common, Signature {
         }
 
         if (params.action == Action.AUTO_ADJUST) {
-            if (state.tickLower == params.newTickLower && state.tickUpper == params.newTickUpper) {
-                revert SameRange();
-            }
+            require(state.tickLower != params.newTickLower || state.tickUpper != params.newTickUpper);
             SwapAndMintResult memory result;
             if (params.targetToken == state.token0) {
                 result = _swapAndMint(SwapAndMintParams(params.protocol, params.nfpm, IERC20(state.token0), IERC20(state.token1), state.fee, params.newTickLower, params.newTickUpper, 0, state.amount0, state.amount1, 0, params.userAddress, params.deadline, IERC20(state.token1), params.amountIn1, params.amountOut1Min, params.swapData1, 0, 0, bytes(""), params.amountAddMin0, params.amountAddMin1), false);
@@ -182,9 +175,7 @@ contract V3Automation is Pausable, Common, Signature {
     function _validateOrder(Order memory order, bytes memory orderSignature, address actor) internal view {
         address userAddress = _recover(order, orderSignature);
         require(userAddress == actor);
-        if (_cancelledOrder[keccak256(orderSignature)]) {
-            revert OrderCancelled();
-        }
+        require(!_cancelledOrder[keccak256(orderSignature)]);
     }
 
     function cancelOrder(Order calldata order, bytes calldata orderSignature) external {

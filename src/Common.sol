@@ -69,7 +69,6 @@ abstract contract Common is AccessControl, Pausable {
     error NoEtherToken();
     error NotWETH();
     error TooMuchFee();
-    error AlreadyInitialised();
     error GetPositionFailed();
     error NoFees();
 
@@ -111,9 +110,7 @@ abstract contract Common is AccessControl, Pausable {
 
     bool private _initialized = false;
     function initialize(address router, address admin, address withdrawer, address feeTaker) public virtual {
-        if (_initialized) {
-            revert AlreadyInitialised();
-        }
+        require(!_initialized);
         if (withdrawer == address(0)) {
             revert();
         }
@@ -733,19 +730,19 @@ abstract contract Common is AccessControl, Pausable {
         return EnumerableSet.contains(_whitelistedNfpm, nfpm);
     }
 
-    function setWhitelistNfpm(address[] calldata nfpms) external {
+    function setWhitelistNfpm(address[] calldata nfpms, bool[] calldata isWhitelists) external onlyRole(ADMIN_ROLE) {
         uint256 length = nfpms.length;
         require(length > 0);
         for (uint256 i = 0; i < length; i++) {
-            EnumerableSet.add(_whitelistedNfpm, nfpms[i]);
+            if (isWhitelists[i]) {
+                EnumerableSet.add(_whitelistedNfpm, nfpms[i]);
+            } else {
+                EnumerableSet.remove(_whitelistedNfpm, nfpms[i]);
+            }
         }
     }
 
-    function removeWhitelistNfpm(address[] calldata nfpms) external {
-        uint256 length = nfpms.length;
-        require(length > 0);
-        for (uint256 i = 0; i < length; i++) {
-            EnumerableSet.remove(_whitelistedNfpm, nfpms[i]);
-        }
+    function setFeeTaker(address feeTaker) external onlyRole(ADMIN_ROLE) {
+        FEE_TAKER = feeTaker;
     }
 }
