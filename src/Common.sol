@@ -730,11 +730,11 @@ abstract contract Common is AccessControl, Pausable {
         return EnumerableSet.contains(_whitelistedNfpm, nfpm);
     }
 
-    function setWhitelistNfpm(address[] calldata nfpms, bool[] calldata isWhitelists) external onlyRole(ADMIN_ROLE) {
+    function setWhitelistNfpm(address[] calldata nfpms, bool isWhitelist) external onlyRole(ADMIN_ROLE) {
         uint256 length = nfpms.length;
         require(length > 0);
         for (uint256 i = 0; i < length; i++) {
-            if (isWhitelists[i]) {
+            if (isWhitelist) {
                 EnumerableSet.add(_whitelistedNfpm, nfpms[i]);
             } else {
                 EnumerableSet.remove(_whitelistedNfpm, nfpms[i]);
