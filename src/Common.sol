@@ -7,6 +7,8 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "v3-core/libraries/FullMath.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
+import '@openzeppelin/contracts/utils/structs/EnumerableSet.sol';
+
 
 interface INonfungiblePositionManager is univ3.INonfungiblePositionManager {
     /// @notice mintParams for algebra v1
@@ -95,27 +97,34 @@ abstract contract Common is AccessControl, Pausable {
     event SwapAndMint(address indexed nfpm, uint256 indexed tokenId, uint128 liquidity, uint256 amount0, uint256 amount1);
     event SwapAndIncreaseLiquidity(address indexed nfpm, uint256 indexed tokenId, uint128 liquidity, uint256 amount0, uint256 amount1);
 
+    EnumerableSet.AddressSet private _whitelistedNfpm;
 
     address public swapRouter;
+    address public FEE_TAKER;
+    address private _initializer;
     mapping (FeeType=>uint64) _maxFeeX64;
     constructor() {
         _maxFeeX64[FeeType.GAS_FEE] = 1844674407370955264; // 10%
         _maxFeeX64[FeeType.PROTOCOL_FEE] = 1844674407370955264; // 10%
+        _initializer = tx.origin;
     }
 
     bool private _initialized = false;
-    function initialize(address router, address admin, address withdrawer) public virtual {
+    function initialize(address router, address admin, address withdrawer, address feeTaker) public virtual {
         if (_initialized) {
             revert AlreadyInitialised();
         }
         if (withdrawer == address(0)) {
             revert();
         }
+        require(msg.sender == _initializer);
+
         _grantRole(ADMIN_ROLE, admin);
         _grantRole(DEFAULT_ADMIN_ROLE, admin);
         _grantRole(WITHDRAWER_ROLE, withdrawer);
         _grantRole(DEFAULT_ADMIN_ROLE, withdrawer);
         swapRouter = router;
+        FEE_TAKER = feeTaker;
 
         _initialized = true;
     }
@@ -658,15 +667,20 @@ abstract contract Common is AccessControl, Pausable {
         if (params.amount0 > 0) {
             feeAmount0 = FullMath.mulDiv(params.amount0, params.feeX64, Q64);
             amount0Left = params.amount0 - feeAmount0;
+            SafeERC20.safeTransfer(IERC20(params.token0), FEE_TAKER, feeAmount0);
         }
         if (params.amount1 > 0) {
             feeAmount1 = FullMath.mulDiv(params.amount1, params.feeX64, Q64);
             amount1Left = params.amount1 - feeAmount1;
+            SafeERC20.safeTransfer(IERC20(params.token1), FEE_TAKER, feeAmount1);
         }
         if (params.amount2 > 0) {
             feeAmount2 = FullMath.mulDiv(params.amount2, params.feeX64, Q64);
             amount2Left = params.amount2 - feeAmount2;
+            SafeERC20.safeTransfer(IERC20(params.token2), FEE_TAKER, feeAmount2);
         }
+
+
         if (emitEvent) {
             emit DeductFees(address(params.nfpm), params.tokenId, params.userAddress, DeductFeesEventData(
                 params.token0, params.token1, params.token2, 
@@ -676,6 +690,7 @@ abstract contract Common is AccessControl, Pausable {
                 params.feeType
             ));
         }
+
     }
 
     function pause() public onlyRole(ADMIN_ROLE) {
@@ -711,6 +726,26 @@ abstract contract Common is AccessControl, Pausable {
         bytes memory returnData = address(token).functionCall(abi.encodeWithSelector(token.approve.selector, _spender, _value));
         if (returnData.length > 0) { // Return data is optional
             require(abi.decode(returnData, (bool)), "SafeERC20: ERC20 operation did not succeed");
+        }
+    }
+
+    function _isWhitelistedNfpm(address nfpm) internal returns(bool) {
+        return EnumerableSet.contains(_whitelistedNfpm, nfpm);
+    }
+
+    function setWhitelistNfpm(address[] calldata nfpms) external {
+        uint256 length = nfpms.length;
+        require(length > 0);
+        for (uint256 i = 0; i < length; i++) {
+            EnumerableSet.add(_whitelistedNfpm, nfpms[i]);
+        }
+    }
+
+    function removeWhitelistNfpm(address[] calldata nfpms) external {
+        uint256 length = nfpms.length;
+        require(length > 0);
+        for (uint256 i = 0; i < length; i++) {
+            EnumerableSet.remove(_whitelistedNfpm, nfpms[i]);
         }
     }
 }

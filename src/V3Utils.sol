@@ -93,17 +93,19 @@ contract V3Utils is IERC721Receiver, Common {
             revert SelfSend();
         }
 
+        require(_isWhitelistedNfpm(address(nfpm)));
+
         Instructions memory instructions = abi.decode(data, (Instructions));
 
         (address token0,address token1,,,,uint24 fee) = _getPosition(nfpm, instructions.protocol, tokenId);
 
         (uint256 amount0, uint256 amount1) = _decreaseLiquidityAndCollectFees(DecreaseAndCollectFeesParams(nfpm, instructions.recipient, IERC20(token0), IERC20(token1), tokenId, instructions.liquidity, instructions.deadline, instructions.amountRemoveMin0, instructions.amountRemoveMin1, instructions.compoundFees));
-       
+
         // take protocol fees
         if (instructions.protocolFeeX64 > 0) {
             (amount0, amount1,,,,) = _deductFees(DeductFeesParams(amount0, amount1, 0, instructions.protocolFeeX64, FeeType.PROTOCOL_FEE, address(nfpm), tokenId, instructions.recipient, token0, token1, address(0)), true);
         }
-       
+
         // check if enough tokens are available for swaps
         if (amount0 < instructions.amountIn0 || amount1 < instructions.amountIn1) {
             revert AmountError();
@@ -112,12 +114,12 @@ contract V3Utils is IERC721Receiver, Common {
         if (instructions.whatToDo == WhatToDo.COMPOUND_FEES) {
             SwapAndIncreaseLiquidityResult memory result;
             if (instructions.targetToken == token0) {
-               result = _swapAndIncrease(SwapAndIncreaseLiquidityParams(instructions.protocol, nfpm, tokenId, amount0, amount1, 0, instructions.recipient, instructions.deadline, IERC20(token1), instructions.amountIn1, instructions.amountOut1Min, instructions.swapData1, 0, 0, "", instructions.amountAddMin0, instructions.amountAddMin1, 0), IERC20(token0), IERC20(token1), instructions.unwrap);
+                result = _swapAndIncrease(SwapAndIncreaseLiquidityParams(instructions.protocol, nfpm, tokenId, amount0, amount1, 0, instructions.recipient, instructions.deadline, IERC20(token1), instructions.amountIn1, instructions.amountOut1Min, instructions.swapData1, 0, 0, "", instructions.amountAddMin0, instructions.amountAddMin1, 0), IERC20(token0), IERC20(token1), instructions.unwrap);
             } else if (instructions.targetToken == token1) {
-               result = _swapAndIncrease(SwapAndIncreaseLiquidityParams(instructions.protocol, nfpm, tokenId, amount0, amount1, 0, instructions.recipient, instructions.deadline, IERC20(token0), 0, 0, "", instructions.amountIn0, instructions.amountOut0Min, instructions.swapData0, instructions.amountAddMin0, instructions.amountAddMin1, 0), IERC20(token0), IERC20(token1), instructions.unwrap);
+                result = _swapAndIncrease(SwapAndIncreaseLiquidityParams(instructions.protocol, nfpm, tokenId, amount0, amount1, 0, instructions.recipient, instructions.deadline, IERC20(token0), 0, 0, "", instructions.amountIn0, instructions.amountOut0Min, instructions.swapData0, instructions.amountAddMin0, instructions.amountAddMin1, 0), IERC20(token0), IERC20(token1), instructions.unwrap);
             } else {
                 // no swap is done here
-               result = _swapAndIncrease(SwapAndIncreaseLiquidityParams(instructions.protocol, nfpm, tokenId, amount0, amount1, 0, instructions.recipient, instructions.deadline, IERC20(address(0)), 0, 0, "", 0, 0, "", instructions.amountAddMin0, instructions.amountAddMin1, 0), IERC20(token0), IERC20(token1), instructions.unwrap);
+                result = _swapAndIncrease(SwapAndIncreaseLiquidityParams(instructions.protocol, nfpm, tokenId, amount0, amount1, 0, instructions.recipient, instructions.deadline, IERC20(address(0)), 0, 0, "", 0, 0, "", instructions.amountAddMin0, instructions.amountAddMin1, 0), IERC20(token0), IERC20(token1), instructions.unwrap);
             }
             emit CompoundFees(address(nfpm), tokenId, result.liquidity, result.added0, result.added1);            
         } else if (instructions.whatToDo == WhatToDo.CHANGE_RANGE) {
@@ -190,6 +192,7 @@ contract V3Utils is IERC721Receiver, Common {
         if (params.token0 == params.token1) {
             revert SameToken();
         }
+        require(_isWhitelistedNfpm(address(params.nfpm)));
         IWETH9 weth = _getWeth9(params.nfpm, params.protocol);
 
         // validate if amount2 is enough for action
@@ -243,6 +246,7 @@ contract V3Utils is IERC721Receiver, Common {
     /// @param params Swap and increase liquidity configuration
     // Sends any leftover tokens to recipient.
     function swapAndIncreaseLiquidity(SwapAndIncreaseLiquidityParams calldata params)  whenNotPaused() external payable returns (SwapAndIncreaseLiquidityResult memory result) {
+        require(_isWhitelistedNfpm(address(params.nfpm)));
         address owner = params.nfpm.ownerOf(params.tokenId);
         require(owner == msg.sender, "sender is not owner of position");
         (address token0,address token1,,,,) = _getPosition(params.nfpm, params.protocol, params.tokenId);
