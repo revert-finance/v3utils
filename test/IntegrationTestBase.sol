@@ -56,9 +56,9 @@ abstract contract IntegrationTestBase is Test {
         vm.selectFork(mainnetFork);
 
         v3utils = new V3Utils();
-        v3utils.initialize(KRYSTAL_ROUTER, TEST_OWNER_ACCOUNT, TEST_OWNER_ACCOUNT);
+        v3utils.initialize(KRYSTAL_ROUTER, TEST_OWNER_ACCOUNT, TEST_OWNER_ACCOUNT, TEST_OWNER_ACCOUNT);
         v3automation = new V3Automation();
-        v3automation.initialize(KRYSTAL_ROUTER, TEST_OWNER_ACCOUNT, TEST_OWNER_ACCOUNT);
+        v3automation.initialize(KRYSTAL_ROUTER, TEST_OWNER_ACCOUNT, TEST_OWNER_ACCOUNT, TEST_OWNER_ACCOUNT);
     }
 
     function _writeTokenBalance(address who, address token, uint256 amt) internal {
