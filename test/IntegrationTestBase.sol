@@ -163,5 +163,5 @@ abstract contract IntegrationTestBase is Test {
         nfpms[0] = 0xC36442b4a4522E871399CD717aBDD847Ab11FE88;
     }
 
-    function test() public {}
+    function test() external {}
 }
