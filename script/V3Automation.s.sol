@@ -14,4 +14,6 @@ contract V3AutomationScript is CommonScript {
 
         vm.stopBroadcast();
     }
+
+    function test() external {}
 }

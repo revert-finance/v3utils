@@ -36,4 +36,6 @@ contract V3UtilsInitializeScript is CommonScript {
 
         vm.stopBroadcast();
     }
+
+    function test() external {}
 }

@@ -14,4 +14,6 @@ contract V3UtilsScript is CommonScript {
 
         vm.stopBroadcast();
     }
+
+    function test() external {}
 }

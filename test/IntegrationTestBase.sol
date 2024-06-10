@@ -52,7 +52,7 @@ abstract contract IntegrationTestBase is Test {
 
     function _setupBase() internal {
 
-        mainnetFork = vm.createFork("https://arbitrum.blockpi.network/v1/rpc/b4669492ccb82744ee8b01efcfde2e9fa0070392", 171544977);
+        mainnetFork = vm.createFork("https://arbitrum.blockpi.network/v1/rpc/d806195b2a58dc2aa626f6c77b0626fc4d03d70d", 171544977);
         vm.selectFork(mainnetFork);
         vm.startBroadcast(TEST_OWNER_ACCOUNT);
         
@@ -162,4 +162,6 @@ abstract contract IntegrationTestBase is Test {
         nfpms = new address[](1);
         nfpms[0] = 0xC36442b4a4522E871399CD717aBDD847Ab11FE88;
     }
+
+    function test() public {}
 }
