@@ -23,6 +23,8 @@ contract V3AutomationInitializeScript is CommonScript {
 
         vm.stopBroadcast();
     }
+
+    function test() external {}
 }
 
 contract V3UtilsInitializeScript is CommonScript {

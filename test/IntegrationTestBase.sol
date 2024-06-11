@@ -5,7 +5,7 @@ import "forge-std/Test.sol";
 import "forge-std/console.sol";
 
 import "../src/V3Utils.sol";
-import "../src/V3Automation.sol";
+import "./Helper.t.sol";
 
 
 abstract contract IntegrationTestBase is Test {
@@ -48,17 +48,16 @@ abstract contract IntegrationTestBase is Test {
     uint256 mainnetFork;
 
     V3Utils v3utils;
-    V3Automation v3automation;
+    V3AutomationHarness v3automation;
 
     function _setupBase() internal {
-
         mainnetFork = vm.createFork("https://arbitrum.blockpi.network/v1/rpc/d806195b2a58dc2aa626f6c77b0626fc4d03d70d", 171544977);
         vm.selectFork(mainnetFork);
         vm.startBroadcast(TEST_OWNER_ACCOUNT);
         
         v3utils = new V3Utils();
         v3utils.initialize(KRYSTAL_ROUTER, TEST_OWNER_ACCOUNT, TEST_OWNER_ACCOUNT, TEST_OWNER_ACCOUNT, _getNfpms());
-        v3automation = new V3Automation();
+        v3automation = new V3AutomationHarness();
         v3automation.initialize(KRYSTAL_ROUTER, TEST_OWNER_ACCOUNT, TEST_OWNER_ACCOUNT, TEST_OWNER_ACCOUNT, _getNfpms());
 
         vm.stopBroadcast();
@@ -120,7 +119,6 @@ abstract contract IntegrationTestBase is Test {
 
         assertEq(balanceDAI, 0);
         assertEq(balanceUSDC, 0);
-
     }
 
     function _get1USDCToDAISwapData() internal pure returns (bytes memory) {
