@@ -12,3 +12,4 @@ out/
 go.mod
 go.sum
 .env
+**/*.html

@@ -1,4 +1,4 @@
-
+pragma solidity ^0.8.0;
 
 import "../src/V3Automation.sol";
 
