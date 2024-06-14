@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.0;
 
-import "forge-std/console.sol";
 import "../IntegrationTestBase.sol";
 
 contract V3AutomationIntegrationTest is IntegrationTestBase {
@@ -186,6 +185,7 @@ contract V3AutomationIntegrationTest is IntegrationTestBase {
         );
 
         uint256 minDestAmount = 400000;
+        uint64 protocolFeeX64 = 18446744073709552; // 0.1%
 
         V3Automation.ExecuteParams memory params = V3Automation.ExecuteParams(
             V3Automation.Action.AUTO_EXIT,
@@ -205,7 +205,7 @@ contract V3AutomationIntegrationTest is IntegrationTestBase {
             0,
             block.timestamp,
             184467440737095520, // 0.01 * 2^64
-            0,
+            protocolFeeX64,
             0,
             0,
             true,
