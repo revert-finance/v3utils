@@ -492,7 +492,6 @@ contract V3UtilsIntegrationTest is IntegrationTestBase {
     }
 
     function testSwapAndIncreaseLiquidityBothSides() external {
-
         _writeTokenBalance(TEST_NFT_5_ACCOUNT, address(USDC), 3000000);
         // add liquidity to another positions which is not owned
 
@@ -731,6 +730,52 @@ contract V3UtilsIntegrationTest is IntegrationTestBase {
         uint256 feeBalance = WETH_ERC20.balanceOf(TEST_FEE_ACCOUNT);
         uint256 feeTakerBalanceAfter = WETH_ERC20.balanceOf(TEST_OWNER_ACCOUNT);
         assertEq(feeBalance-feeBalanceBefore, 10000000000000000);
+        assertGt(feeTakerBalanceAfter, feeTakerBalanceBefore);
+    }
+
+    function testSwapAndIncreaseLiquidityAndCollectFees() external {
+        uint64 protocolFeeX64 = 18446744073709552; // 0.1%
+
+        
+
+        uint256 feeTakerBalanceBefore = WETH_ERC20.balanceOf(TEST_OWNER_ACCOUNT);
+        (, , , , , , , uint128 liquidityBefore, , , , ) = NPM.positions(
+            TEST_NFT
+        );
+
+        _writeTokenBalance(TEST_NFT_ACCOUNT, address(WETH_ERC20), 1.5 ether);
+
+        V3Utils.SwapAndIncreaseLiquidityParams memory params = Common.SwapAndIncreaseLiquidityParams(
+            Common.Protocol.UNI_V3,
+            NPM,
+            TEST_NFT,
+            0,
+            0,
+            1.5 ether,
+            TEST_NFT_ACCOUNT,
+            block.timestamp,
+            WETH_ERC20,
+            500000000000000000, // 0.5ETH
+            662616334956561731436,
+            _get05ETHToDAISwapData(),
+            500000000000000000, // 0.5ETH
+            661794703,
+            _get05ETHToUSDCSwapData(),
+            0,
+            0,
+            protocolFeeX64
+        );
+
+        vm.startPrank(TEST_NFT_ACCOUNT);
+
+        WETH_ERC20.approve(address(v3utils), 1.5 ether);
+        Common.SwapAndIncreaseLiquidityResult memory result = v3utils.swapAndIncreaseLiquidity(params);
+
+        vm.stopPrank();
+
+        uint256 feeTakerBalanceAfter = WETH_ERC20.balanceOf(TEST_OWNER_ACCOUNT);
+
+        assertGt(result.liquidity, liquidityBefore);
         assertGt(feeTakerBalanceAfter, feeTakerBalanceBefore);
     }
 
