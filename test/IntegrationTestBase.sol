@@ -18,10 +18,9 @@ abstract contract IntegrationTestBase is Test {
     IERC20 constant USDC = IERC20(0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8); // USDC.e
     IERC20 constant DAI = IERC20(0xDA10009cBd5D07dd0CeCc66161FC93D7c9000da1);
 
-
     INonfungiblePositionManager constant NPM = INonfungiblePositionManager(0xC36442b4a4522E871399CD717aBDD847Ab11FE88);
+    INonfungiblePositionManager constant ALGEBRA_NFPM = INonfungiblePositionManager(0x00c7f3082833e796A5b3e4Bd59f6642FF44DCD15); // Camelot V3 NFPM
 
-    address EX0x = 0xDef1C0ded9bec7F1a1670819833240f027b25EfF; // 0x exchange proxy
     address UNIVERSAL_ROUTER = 0x3fC91A3afd70395Cd496C647d5a6CC9D4B2b7FAD; // uniswap universal router
     address KRYSTAL_ROUTER = 0x864F01c5E46b0712643B956BcA607bF883e0dbC5;
 
@@ -159,8 +158,9 @@ abstract contract IntegrationTestBase is Test {
     }
 
     function _getNfpms() internal pure returns (address[] memory nfpms) {
-        nfpms = new address[](1);
-        nfpms[0] = 0xC36442b4a4522E871399CD717aBDD847Ab11FE88;
+        nfpms = new address[](2);
+        nfpms[0] = address(NPM);
+        nfpms[1] = address(ALGEBRA_NFPM);
     }
 
     function test() external {}

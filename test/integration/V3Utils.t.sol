@@ -864,4 +864,49 @@ contract V3UtilsIntegrationTest is IntegrationTestBase {
         );
         v3utils.swapAndMint{value: 1 ether}(params);
     }
+
+    function testSwapAndMintWithETHAlgebra() external {
+        uint64 protocolFeeX64 = 18446744073709552; // 0.1%
+        uint256 feeBalanceBefore = WETH_ERC20.balanceOf(TEST_FEE_ACCOUNT);
+
+        uint256 feeTakerBalanceBefore = WETH_ERC20.balanceOf(TEST_OWNER_ACCOUNT);
+
+        V3Utils.SwapAndMintParams memory params = Common.SwapAndMintParams(
+            Common.Protocol.ALGEBRA_V1,
+            ALGEBRA_NFPM,
+            DAI,
+            USDC,
+            0,
+            -887220,
+            887220,
+            protocolFeeX64,
+            0,
+            0,
+            1.1 ether,
+            TEST_NFT_ACCOUNT,
+            block.timestamp,
+            WETH_ERC20,
+            500000000000000000, // 0.5ETH
+            662616334956561731436,
+            _get05ETHToDAISwapData(),
+            500000000000000000, // 0.5ETH
+            661794703,
+            _get05ETHToUSDCSwapData(),
+            0,
+            0
+        );
+
+        hoax(TEST_NFT_ACCOUNT, 1.1 ether);
+        Common.SwapAndMintResult memory result = v3utils.swapAndMint{value: 1.1 ether}(params);
+
+        assertGt(result.tokenId, 0);
+        assertGt(result.liquidity, 0);
+        assertGt(result.added0, 0);
+        assertGt(result.added1, 0);
+
+        uint256 feeBalance = WETH_ERC20.balanceOf(TEST_FEE_ACCOUNT);
+        uint256 feeTakerBalanceAfter = WETH_ERC20.balanceOf(TEST_OWNER_ACCOUNT);
+        assertEq(feeBalance-feeBalanceBefore, 10000000000000000);
+        assertGt(feeTakerBalanceAfter, feeTakerBalanceBefore);
+    }
 }
