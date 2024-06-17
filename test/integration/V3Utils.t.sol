@@ -2,9 +2,10 @@
 pragma solidity ^0.8.0;
 
 import "../IntegrationTestBase.sol";
+import "../../src/Pausable.sol";
 
 contract V3UtilsIntegrationTest is IntegrationTestBase {
-   
+
     function setUp() external {
         _setupBase();
     }
@@ -828,5 +829,39 @@ contract V3UtilsIntegrationTest is IntegrationTestBase {
 
         assertEq(countAfter, countBefore); // nft returned
         assertGt(balanceDAIFeeTakerAfter, balanceDAIFeeTakerBefore);
+    }
+
+    function testPauseContract() external {
+        vm.prank(TEST_OWNER_ACCOUNT);
+        v3utils.pause();
+
+        vm.expectRevert(Pausable.EnforcedPause.selector);
+
+        hoax(TEST_NFT_ACCOUNT, 1 ether);
+        V3Utils.SwapAndMintParams memory params = Common.SwapAndMintParams(
+            Common.Protocol.UNI_V3,
+            NPM,
+            DAI,
+            USDC,
+            500,
+            MIN_TICK_500,
+            -MIN_TICK_500,
+            0,
+            0,
+            0,
+            1 ether,
+            TEST_NFT_ACCOUNT,
+            block.timestamp,
+            WETH_ERC20,
+            500000000000000000, // 0.5ETH
+            662616334956561731436,
+            _get05ETHToDAISwapData(),
+            500000000000000000, // 0.5ETH
+            661794703,
+            _get05ETHToUSDCSwapData(),
+            0,
+            0
+        );
+        v3utils.swapAndMint{value: 1 ether}(params);
     }
 }
