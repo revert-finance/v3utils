@@ -50,6 +50,8 @@ abstract contract IntegrationTestBase is Test {
     V3Utils v3utils;
     V3AutomationHarness v3automation;
 
+    bytes32 NFPM_DOMAIN_SEPARATOR = 0xb3950ffe55029fe67cc1d7e8cd49bfb91abfaaa69ebf0542c09e66e7eccda8d6;
+
     function _setupBase() internal {
         mainnetFork = vm.createFork("https://arbitrum.blockpi.network/v1/rpc/d806195b2a58dc2aa626f6c77b0626fc4d03d70d", 171544977);
         vm.selectFork(mainnetFork);
