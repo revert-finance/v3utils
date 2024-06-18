@@ -18,10 +18,9 @@ abstract contract IntegrationTestBase is Test {
     IERC20 constant USDC = IERC20(0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8); // USDC.e
     IERC20 constant DAI = IERC20(0xDA10009cBd5D07dd0CeCc66161FC93D7c9000da1);
 
-
     INonfungiblePositionManager constant NPM = INonfungiblePositionManager(0xC36442b4a4522E871399CD717aBDD847Ab11FE88);
+    INonfungiblePositionManager constant ALGEBRA_NFPM = INonfungiblePositionManager(0x00c7f3082833e796A5b3e4Bd59f6642FF44DCD15); // Camelot V3 NFPM
 
-    address EX0x = 0xDef1C0ded9bec7F1a1670819833240f027b25EfF; // 0x exchange proxy
     address UNIVERSAL_ROUTER = 0x3fC91A3afd70395Cd496C647d5a6CC9D4B2b7FAD; // uniswap universal router
     address KRYSTAL_ROUTER = 0x864F01c5E46b0712643B956BcA607bF883e0dbC5;
 
@@ -40,7 +39,7 @@ abstract contract IntegrationTestBase is Test {
     address constant TEST_NFT_5_ACCOUNT = 0x9C2Bdc7Ff2b43d8d7Ec21A3C5aAeb35C9fb5ABC2;
 
 
-    address constant TEST_FEE_ACCOUNT = 0x864F01c5E46b0712643B956BcA607bF883e0dbC5;
+    address constant TEST_FEE_ACCOUNT = 0x864F01c5E46b0712643B956BcA607bF883e0dbC5; // krystal swap router
     address constant TEST_OWNER_ACCOUNT = 0x9f8F14D05fe689651Ee77aD26AF693DF7333692E;
 
     // address constant DAI_HOLDER = 0x1eED63EfBA5f81D95bfe37d82C8E736b974F477b;
@@ -49,6 +48,8 @@ abstract contract IntegrationTestBase is Test {
 
     V3Utils v3utils;
     V3AutomationHarness v3automation;
+
+    bytes32 NFPM_DOMAIN_SEPARATOR = 0xb3950ffe55029fe67cc1d7e8cd49bfb91abfaaa69ebf0542c09e66e7eccda8d6;
 
     function _setupBase() internal {
         mainnetFork = vm.createFork("https://arbitrum.blockpi.network/v1/rpc/d806195b2a58dc2aa626f6c77b0626fc4d03d70d", 171544977);
@@ -157,8 +158,9 @@ abstract contract IntegrationTestBase is Test {
     }
 
     function _getNfpms() internal pure returns (address[] memory nfpms) {
-        nfpms = new address[](1);
-        nfpms[0] = 0xC36442b4a4522E871399CD717aBDD847Ab11FE88;
+        nfpms = new address[](2);
+        nfpms[0] = address(NPM);
+        nfpms[1] = address(ALGEBRA_NFPM);
     }
 
     function test() external {}

@@ -2,9 +2,10 @@
 pragma solidity ^0.8.0;
 
 import "../IntegrationTestBase.sol";
+import "../../src/Pausable.sol";
 
 contract V3UtilsIntegrationTest is IntegrationTestBase {
-   
+
     function setUp() external {
         _setupBase();
     }
@@ -450,14 +451,17 @@ contract V3UtilsIntegrationTest is IntegrationTestBase {
     }
 
     function testSwapAndIncreaseLiquidity() external {
-        _writeTokenBalance(TEST_NFT_ACCOUNT, address(USDC), 1000000);
+        uint64 protocolFeeX64 = 18446744073709552; // 0.1%
+
+        uint256 balanceUSDC = 1001001;
+        _writeTokenBalance(TEST_NFT_ACCOUNT, address(USDC), balanceUSDC);
         V3Utils.SwapAndIncreaseLiquidityParams memory params = Common
             .SwapAndIncreaseLiquidityParams(
                 Common.Protocol.UNI_V3,
                 NPM,
                 TEST_NFT,
                 0,
-                1000000,
+                balanceUSDC,
                 0,
                 TEST_NFT_ACCOUNT,
                 block.timestamp,
@@ -470,11 +474,11 @@ contract V3UtilsIntegrationTest is IntegrationTestBase {
                 "",
                 0,
                 0,
-                0
+                protocolFeeX64
             );
 
         vm.prank(TEST_NFT_ACCOUNT);
-        USDC.approve(address(v3utils), 1000000);
+        USDC.approve(address(v3utils), balanceUSDC);
         uint256 feeBalanceBefore = USDC.balanceOf(TEST_FEE_ACCOUNT);
 
         vm.prank(TEST_NFT_ACCOUNT);
@@ -489,7 +493,6 @@ contract V3UtilsIntegrationTest is IntegrationTestBase {
     }
 
     function testSwapAndIncreaseLiquidityBothSides() external {
-
         _writeTokenBalance(TEST_NFT_5_ACCOUNT, address(USDC), 3000000);
         // add liquidity to another positions which is not owned
 
@@ -687,7 +690,154 @@ contract V3UtilsIntegrationTest is IntegrationTestBase {
     }
 
     function testSwapAndMintWithETH() public {
+        uint64 protocolFeeX64 = 18446744073709552; // 0.1%
         uint256 feeBalanceBefore = WETH_ERC20.balanceOf(TEST_FEE_ACCOUNT);
+
+        uint256 feeTakerBalanceBefore = WETH_ERC20.balanceOf(TEST_OWNER_ACCOUNT);
+
+        V3Utils.SwapAndMintParams memory params = Common.SwapAndMintParams(
+            Common.Protocol.UNI_V3,
+            NPM,
+            DAI,
+            USDC,
+            500,
+            MIN_TICK_500,
+            -MIN_TICK_500,
+            protocolFeeX64,
+            0,
+            0,
+            1.1 ether,
+            TEST_NFT_ACCOUNT,
+            block.timestamp,
+            WETH_ERC20,
+            500000000000000000, // 0.5ETH
+            662616334956561731436,
+            _get05ETHToDAISwapData(),
+            500000000000000000, // 0.5ETH
+            661794703,
+            _get05ETHToUSDCSwapData(),
+            0,
+            0
+        );
+
+        hoax(TEST_NFT_ACCOUNT);
+        Common.SwapAndMintResult memory result = v3utils.swapAndMint{value: 1.1 ether}(params);
+
+        assertGt(result.tokenId, 0);
+        assertEq(result.liquidity, 1249239075875054);
+        assertEq(result.added0, 1249125286170506379296);
+        assertEq(result.added1, 1249352876);
+
+        uint256 feeBalance = WETH_ERC20.balanceOf(TEST_FEE_ACCOUNT);
+        uint256 feeTakerBalanceAfter = WETH_ERC20.balanceOf(TEST_OWNER_ACCOUNT);
+        assertEq(feeBalance-feeBalanceBefore, 10000000000000000);
+        assertGt(feeTakerBalanceAfter, feeTakerBalanceBefore);
+    }
+
+    function testSwapAndIncreaseLiquidityAndCollectFees() external {
+        uint64 protocolFeeX64 = 18446744073709552; // 0.1%
+
+        
+
+        uint256 feeTakerBalanceBefore = WETH_ERC20.balanceOf(TEST_OWNER_ACCOUNT);
+        (, , , , , , , uint128 liquidityBefore, , , , ) = NPM.positions(
+            TEST_NFT
+        );
+
+        _writeTokenBalance(TEST_NFT_ACCOUNT, address(WETH_ERC20), 1.5 ether);
+
+        V3Utils.SwapAndIncreaseLiquidityParams memory params = Common.SwapAndIncreaseLiquidityParams(
+            Common.Protocol.UNI_V3,
+            NPM,
+            TEST_NFT,
+            0,
+            0,
+            1.5 ether,
+            TEST_NFT_ACCOUNT,
+            block.timestamp,
+            WETH_ERC20,
+            500000000000000000, // 0.5ETH
+            662616334956561731436,
+            _get05ETHToDAISwapData(),
+            500000000000000000, // 0.5ETH
+            661794703,
+            _get05ETHToUSDCSwapData(),
+            0,
+            0,
+            protocolFeeX64
+        );
+
+        vm.startPrank(TEST_NFT_ACCOUNT);
+
+        WETH_ERC20.approve(address(v3utils), 1.5 ether);
+        Common.SwapAndIncreaseLiquidityResult memory result = v3utils.swapAndIncreaseLiquidity(params);
+
+        vm.stopPrank();
+
+        uint256 feeTakerBalanceAfter = WETH_ERC20.balanceOf(TEST_OWNER_ACCOUNT);
+
+        assertGt(result.liquidity, liquidityBefore);
+        assertGt(feeTakerBalanceAfter, feeTakerBalanceBefore);
+    }
+
+    function testWithdrawAndSwapAndCollectProtocolFees() external {
+        // add liquidity to existing (empty) position (add 1 DAI / 0 USDC)
+        uint128 liquidity = _increaseLiquidity();
+
+        uint256 countBefore = NPM.balanceOf(TEST_NFT_ACCOUNT);
+
+        uint64 protocolFeeX64 = 18446744073709552; // 0.1%
+
+        V3Utils.Instructions memory inst = V3Utils.Instructions(
+            V3Utils.WhatToDo.WITHDRAW_AND_COLLECT_AND_SWAP,
+            Common.Protocol.UNI_V3,
+            address(USDC),
+            0,
+            0,
+            990099009900989844, // uniswap returns 1 less when getting liquidity - this must be traded
+            900000,
+            _get1DAIToUSDSwapData(),
+            0,
+            0,
+            "",
+            0,
+            0,
+            true,
+            liquidity,
+            0,
+            0,
+            block.timestamp,
+            TEST_NFT_ACCOUNT,
+            false,
+            protocolFeeX64
+        );
+
+        uint256 balanceDAIFeeTakerBefore = DAI.balanceOf(TEST_OWNER_ACCOUNT);
+
+        vm.prank(TEST_NFT_ACCOUNT);
+        NPM.safeTransferFrom(
+            TEST_NFT_ACCOUNT,
+            address(v3utils),
+            TEST_NFT,
+            abi.encode(inst)
+        );
+        vm.stopPrank();
+
+        uint256 countAfter = NPM.balanceOf(TEST_NFT_ACCOUNT);
+
+        uint256 balanceDAIFeeTakerAfter = DAI.balanceOf(TEST_OWNER_ACCOUNT);
+
+        assertEq(countAfter, countBefore); // nft returned
+        assertGt(balanceDAIFeeTakerAfter, balanceDAIFeeTakerBefore);
+    }
+
+    function testPauseContract() external {
+        vm.prank(TEST_OWNER_ACCOUNT);
+        v3utils.pause();
+
+        vm.expectRevert(Pausable.EnforcedPause.selector);
+
+        hoax(TEST_NFT_ACCOUNT, 1 ether);
         V3Utils.SwapAndMintParams memory params = Common.SwapAndMintParams(
             Common.Protocol.UNI_V3,
             NPM,
@@ -712,16 +862,51 @@ contract V3UtilsIntegrationTest is IntegrationTestBase {
             0,
             0
         );
+        v3utils.swapAndMint{value: 1 ether}(params);
+    }
 
-        hoax(TEST_NFT_ACCOUNT);
-        Common.SwapAndMintResult memory result = v3utils.swapAndMint{value: 1 ether}(params);
+    function testSwapAndMintWithETHAlgebra() external {
+        uint64 protocolFeeX64 = 18446744073709552; // 0.1%
+        uint256 feeBalanceBefore = WETH_ERC20.balanceOf(TEST_FEE_ACCOUNT);
+
+        uint256 feeTakerBalanceBefore = WETH_ERC20.balanceOf(TEST_OWNER_ACCOUNT);
+
+        V3Utils.SwapAndMintParams memory params = Common.SwapAndMintParams(
+            Common.Protocol.ALGEBRA_V1,
+            ALGEBRA_NFPM,
+            DAI,
+            USDC,
+            0,
+            -887220,
+            887220,
+            protocolFeeX64,
+            0,
+            0,
+            1.1 ether,
+            TEST_NFT_ACCOUNT,
+            block.timestamp,
+            WETH_ERC20,
+            500000000000000000, // 0.5ETH
+            662616334956561731436,
+            _get05ETHToDAISwapData(),
+            500000000000000000, // 0.5ETH
+            661794703,
+            _get05ETHToUSDCSwapData(),
+            0,
+            0
+        );
+
+        hoax(TEST_NFT_ACCOUNT, 1.1 ether);
+        Common.SwapAndMintResult memory result = v3utils.swapAndMint{value: 1.1 ether}(params);
 
         assertGt(result.tokenId, 0);
-        assertEq(result.liquidity, 1249239075875054);
-        assertEq(result.added0, 1249125286170506379296);
-        assertEq(result.added1, 1249352876);
+        assertGt(result.liquidity, 0);
+        assertGt(result.added0, 0);
+        assertGt(result.added1, 0);
 
         uint256 feeBalance = WETH_ERC20.balanceOf(TEST_FEE_ACCOUNT);
+        uint256 feeTakerBalanceAfter = WETH_ERC20.balanceOf(TEST_OWNER_ACCOUNT);
         assertEq(feeBalance-feeBalanceBefore, 10000000000000000);
+        assertGt(feeTakerBalanceAfter, feeTakerBalanceBefore);
     }
 }
