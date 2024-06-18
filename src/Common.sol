@@ -442,7 +442,7 @@ abstract contract Common is AccessControl, Pausable {
     // swap and increase logic
     function _swapAndIncrease(SwapAndIncreaseLiquidityParams memory params, IERC20 token0, IERC20 token1, bool unwrap) internal returns (SwapAndIncreaseLiquidityResult memory result) {
         (uint256 total0, uint256 total1) = _swapAndPrepareAmounts(
-            SwapAndMintParams(params.protocol, params.nfpm, token0, token1, 0, 0, 0, 0, params.amount0, params.amount1, 0, params.recipient, params.deadline, params.swapSourceToken, params.amountIn0, params.amountOut0Min, params.swapData0, params.amountIn1, params.amountOut1Min, params.swapData1, params.amountAddMin0, params.amountAddMin1), unwrap);
+            SwapAndMintParams(params.protocol, params.nfpm, token0, token1, 0, 0, 0, 0, params.amount0, params.amount1, params.amount2, params.recipient, params.deadline, params.swapSourceToken, params.amountIn0, params.amountOut0Min, params.swapData0, params.amountIn1, params.amountOut1Min, params.swapData1, params.amountAddMin0, params.amountAddMin1), unwrap);
         INonfungiblePositionManager.IncreaseLiquidityParams memory increaseLiquidityParams = 
             univ3.INonfungiblePositionManager.IncreaseLiquidityParams(
                 params.tokenId, 
@@ -483,8 +483,11 @@ abstract contract Common is AccessControl, Pausable {
             total0 = params.amount0 + amountOutDelta0;
             total1 = params.amount1 + amountOutDelta1;
 
+            if (params.amount2 < amountInDelta0 + amountInDelta1) {
+                revert AmountError();
+            }
             // return third token leftover if any
-            uint256 leftOver = params.amountIn0 + params.amountIn1 - amountInDelta0 - amountInDelta1;
+            uint256 leftOver = params.amount2 - amountInDelta0 - amountInDelta1;
 
             if (leftOver != 0) {
                 IWETH9 weth = _getWeth9(params.nfpm, params.protocol);

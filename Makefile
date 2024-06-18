@@ -15,7 +15,7 @@ v3automation:
 	$(eval CONTRACT=V3Automation)
 deploy-v3utils:
 deploy-v3automation:
-deploy-%: % clean
+deploy-%: %
 	forge script script/$(CONTRACT).s.sol:$(CONTRACT)Script --rpc-url $(RPC_URL) --broadcast
 verify-v3utils:
 verify-v3automation:

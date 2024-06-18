@@ -212,17 +212,6 @@ contract V3Utils is IERC721Receiver, Common {
             uint256 feeAmount2;
             // since we do not have the tokenId here, we need to emit event later
             (_params.amount0, _params.amount1, _params.amount2, feeAmount0, feeAmount1, feeAmount2) = _deductFees(DeductFeesParams(params.amount0, params.amount1, params.amount2, params.protocolFeeX64, FeeType.PROTOCOL_FEE, address(params.nfpm), 0, params.recipient, address(params.token0), address(params.token1), address(params.swapSourceToken)), false);
-            // swap source token is not token 0 and token 1
-            if (_params.swapSourceToken != _params.token0 && _params.swapSourceToken != _params.token1) {
-                if (_params.amountIn0 + _params.amountIn1 > _params.amount2) {
-                    revert AmountError();
-                }
-                if (_params.amountIn0 + _params.amountIn1 < _params.amount2) {
-                    uint256 leftOverAmount = _params.amount2 - (_params.amountIn0 + _params.amountIn1);
-                    // return un-needed tokens
-                    _transferToken(weth, msg.sender, _params.swapSourceToken, leftOverAmount, msg.value != 0);
-                }
-            }
 
             eventData = DeductFeesEventData({
                 token0: address(params.token0),
@@ -264,14 +253,6 @@ contract V3Utils is IERC721Receiver, Common {
         SwapAndIncreaseLiquidityParams memory _params = params;
         if (params.protocolFeeX64 > 0) {
             (_params.amount0, _params.amount1, _params.amount2,,,) = _deductFees(DeductFeesParams(params.amount0, params.amount1, params.amount2, params.protocolFeeX64, FeeType.PROTOCOL_FEE, address(params.nfpm), params.tokenId, params.recipient, token0, token1, address(params.swapSourceToken)), true);
-            // swap source token is not token 0 and token 1
-            if (address(_params.swapSourceToken) != token0 && address(_params.swapSourceToken) != token1) {
-                if (_params.amountIn0 + _params.amountIn1 < _params.amount2) {
-                    uint256 leftOverAmount = _params.amount2 - (_params.amountIn0 + _params.amountIn1);
-                    // return un-needed tokens
-                    _transferToken(weth, msg.sender, _params.swapSourceToken, leftOverAmount, msg.value != 0);
-                }
-            }
         }
 
         result = _swapAndIncrease(_params, IERC20(token0), IERC20(token1), msg.value != 0);
