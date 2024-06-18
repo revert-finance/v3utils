@@ -48,4 +48,6 @@ abstract contract CommonScript is Script {
         console.log("ADMIN_ADDRESS: ", admin);
         console.log("WITHDRAWER: ", withdrawer);
     }
+
+    function testCommon() external {}
 }

@@ -17,6 +17,8 @@ contract VerifyV3UtilsScript is CommonScript {
             )
         );    
     }
+
+    function test() external {}
 }
 
 contract VerifyV3AutomationScript is CommonScript {
@@ -32,4 +34,6 @@ contract VerifyV3AutomationScript is CommonScript {
             )
         );    
     }
+
+    function test() external {}
 }

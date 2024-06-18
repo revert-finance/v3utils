@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 // modified version of @openzeppelin
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.0;
 
 abstract contract EIP712 {
     bytes32 private constant TYPE_HASH =

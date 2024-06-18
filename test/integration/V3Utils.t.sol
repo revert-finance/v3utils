@@ -724,6 +724,4 @@ contract V3UtilsIntegrationTest is IntegrationTestBase {
         uint256 feeBalance = WETH_ERC20.balanceOf(TEST_FEE_ACCOUNT);
         assertEq(feeBalance-feeBalanceBefore, 10000000000000000);
     }
-
-
 }
