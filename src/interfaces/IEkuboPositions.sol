@@ -9,6 +9,7 @@ struct EkuboPoolKey {
     address token1;
     bytes32 config;
 }
+
 /// @notice ABI used by EkuboUtils for Ekubo's canonical Positions contract.
 /// @dev Kept local so the utility does not depend on Ekubo's source-available license.
 interface IEkuboPositions is IERC721 {

@@ -306,36 +306,86 @@ contract EkuboUtilsTest is Test {
         assertEq(token1.balanceOf(address(utils)), 0);
     }
 
-    function testSwapAndIncreaseLiquidityUsesApprovedNft() external {
+    function testAddLiquidityUsesTemporaryNftCustodyWithoutApproval() external {
         uint256 tokenId = _mintPosition(100, 200);
-        vm.prank(user);
-        positions.approve(address(utils), tokenId);
+        assertEq(positions.getApproved(tokenId), address(0));
 
-        EkuboUtils.SwapAndIncreaseLiquidityParams memory params = EkuboUtils.SwapAndIncreaseLiquidityParams({
-            tokenId: tokenId,
-            position: position,
-            amount0: 50,
-            amount1: 70,
-            recipient: user,
-            deadline: block.timestamp,
-            swapSourceToken: IERC20(address(0)),
-            amountIn0: 0,
-            amountOut0Min: 0,
-            swapData0: "",
-            amountIn1: 0,
-            amountOut1Min: 0,
-            swapData1: "",
-            minLiquidity: 120,
-            unwrap: false
-        });
+        EkuboUtils.Instructions memory instructions = _instructions(EkuboUtils.WhatToDo.ADD_LIQUIDITY);
+        instructions.amount0 = 50;
+        instructions.amount1 = 70;
+        instructions.minLiquidity = 120;
 
         vm.prank(user);
-        (uint128 addedLiquidity,,) = utils.swapAndIncreaseLiquidity(params);
+        positions.safeTransferFrom(user, address(utils), tokenId, abi.encode(instructions));
+
         (uint128 totalLiquidity,,,,) =
             positions.getPositionFeesAndLiquidity(tokenId, position.poolKey, position.tickLower, position.tickUpper);
-        assertEq(addedLiquidity, 120);
         assertEq(totalLiquidity, 420);
         assertEq(positions.ownerOf(tokenId), user);
+        assertEq(positions.getApproved(tokenId), address(0));
+    }
+
+    function testAddLiquidityCanSwapWhileNftIsInTemporaryCustody() external {
+        uint256 tokenId = _mintPosition(100, 200);
+        EkuboUtils.Instructions memory instructions = _instructions(EkuboUtils.WhatToDo.ADD_LIQUIDITY);
+        instructions.amount0 = 300;
+        instructions.swapSourceToken = address(token0);
+        instructions.amountIn1 = 100;
+        instructions.amountOut1Min = 80;
+        instructions.swapData1 = _swapData(token0, token1, 100, 80);
+        instructions.minLiquidity = 280;
+
+        vm.prank(user);
+        positions.safeTransferFrom(user, address(utils), tokenId, abi.encode(instructions));
+
+        (uint128 liquidity, uint128 principal0, uint128 principal1,,) =
+            positions.getPositionFeesAndLiquidity(tokenId, position.poolKey, position.tickLower, position.tickUpper);
+        assertEq(liquidity, 580);
+        assertEq(principal0, 300);
+        assertEq(principal1, 280);
+        assertEq(positions.ownerOf(tokenId), user);
+        assertEq(positions.getApproved(tokenId), address(0));
+    }
+
+    function testApprovedNftOperatorCannotPullOwnersDepositTokens() external {
+        uint256 tokenId = _mintPosition(100, 200);
+        address operator = makeAddr("operator");
+        EkuboUtils.Instructions memory instructions = _instructions(EkuboUtils.WhatToDo.ADD_LIQUIDITY);
+        instructions.amount0 = 50;
+        instructions.amount1 = 70;
+        instructions.minLiquidity = 120;
+        uint256 balance0Before = token0.balanceOf(user);
+        uint256 balance1Before = token1.balanceOf(user);
+
+        vm.prank(user);
+        positions.setApprovalForAll(operator, true);
+        vm.prank(operator);
+        vm.expectRevert(EkuboUtils.NftOwnerOnly.selector);
+        positions.safeTransferFrom(user, address(utils), tokenId, abi.encode(instructions));
+
+        assertEq(positions.ownerOf(tokenId), user);
+        assertEq(token0.balanceOf(user), balance0Before);
+        assertEq(token1.balanceOf(user), balance1Before);
+    }
+
+    function testExecuteConvenienceClearsOneTokenNftApproval() external {
+        uint256 tokenId = _mintPosition(100, 200);
+        EkuboUtils.Instructions memory instructions = _instructions(EkuboUtils.WhatToDo.ADD_LIQUIDITY);
+        instructions.amount0 = 50;
+        instructions.amount1 = 70;
+        instructions.minLiquidity = 120;
+
+        vm.prank(user);
+        positions.approve(address(utils), tokenId);
+        assertEq(positions.getApproved(tokenId), address(utils));
+        vm.prank(user);
+        utils.execute(tokenId, instructions);
+
+        (uint128 liquidity,,,,) =
+            positions.getPositionFeesAndLiquidity(tokenId, position.poolKey, position.tickLower, position.tickUpper);
+        assertEq(liquidity, 420);
+        assertEq(positions.ownerOf(tokenId), user);
+        assertEq(positions.getApproved(tokenId), address(0));
     }
 
     function testCompoundCollectsFeesAndAddsThemToSameRange() external {
@@ -389,10 +439,8 @@ contract EkuboUtilsTest is Test {
         instructions.newPosition = EkuboUtils.PositionSpec({poolKey: position.poolKey, tickLower: -40, tickUpper: 40});
 
         vm.prank(user);
-        positions.approve(address(utils), tokenId);
-        vm.prank(user);
         vm.expectRevert(abi.encodeWithSelector(EkuboUtils.FullWithdrawalRequired.selector, 300, 299));
-        utils.execute(tokenId, instructions);
+        positions.safeTransferFrom(user, address(utils), tokenId, abi.encode(instructions));
         assertEq(positions.ownerOf(tokenId), user);
     }
 
@@ -506,9 +554,7 @@ contract EkuboUtilsTest is Test {
 
     function _execute(uint256 tokenId, EkuboUtils.Instructions memory instructions) internal {
         vm.prank(user);
-        positions.approve(address(utils), tokenId);
-        vm.prank(user);
-        utils.execute(tokenId, instructions);
+        positions.safeTransferFrom(user, address(utils), tokenId, abi.encode(instructions));
     }
 
     function _swapData(IERC20 tokenIn_, IERC20 tokenOut_, uint256 amountIn, uint256 amountOut)

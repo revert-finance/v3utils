@@ -37,6 +37,7 @@ contract EkuboUtils is IERC721Receiver {
     error InvalidTicks();
     error MissingSwapData();
     error NativeWrappedPairNotSupported();
+    error NftOwnerOnly();
     error NotSupportedWhatToDo();
     error InvalidEtherSender();
     error ReentrantCall();
@@ -60,7 +61,8 @@ contract EkuboUtils is IERC721Receiver {
     enum WhatToDo {
         CHANGE_RANGE,
         WITHDRAW_AND_COLLECT_AND_SWAP,
-        COMPOUND_FEES
+        COMPOUND_FEES,
+        ADD_LIQUIDITY
     }
 
     struct PositionSpec {
@@ -72,6 +74,10 @@ contract EkuboUtils is IERC721Receiver {
     struct Instructions {
         WhatToDo whatToDo;
         PositionSpec position;
+        // Assets supplied by the NFT sender for ADD_LIQUIDITY.
+        uint256 amount0;
+        uint256 amount1;
+        address swapSourceToken;
         // address(0) means no swap for compounding/range changes. Use WETH to target native ETH.
         address targetToken;
         uint128 amountRemoveMin0;
@@ -123,24 +129,6 @@ contract EkuboUtils is IERC721Receiver {
         bool unwrap;
     }
 
-    struct SwapAndIncreaseLiquidityParams {
-        uint256 tokenId;
-        PositionSpec position;
-        uint256 amount0;
-        uint256 amount1;
-        address recipient;
-        uint256 deadline;
-        IERC20 swapSourceToken;
-        uint256 amountIn0;
-        uint256 amountOut0Min;
-        bytes swapData0;
-        uint256 amountIn1;
-        uint256 amountOut1Min;
-        bytes swapData1;
-        uint128 minLiquidity;
-        bool unwrap;
-    }
-
     modifier nonReentrant() {
         if (_locked != 1) revert ReentrantCall();
         _locked = 2;
@@ -167,7 +155,7 @@ contract EkuboUtils is IERC721Receiver {
     }
 
     /// @notice Executes instructions supplied with an Ekubo NFT transfer, then returns the original NFT.
-    function onERC721Received(address, address from, uint256 tokenId, bytes calldata data)
+    function onERC721Received(address operator, address from, uint256 tokenId, bytes calldata data)
         external
         nonReentrant
         returns (bytes4)
@@ -180,6 +168,18 @@ contract EkuboUtils is IERC721Receiver {
         _validateRecipient(instructions.recipient);
         _validatePosition(instructions.position);
 
+        if (instructions.whatToDo == WhatToDo.ADD_LIQUIDITY) {
+            if (operator != from && operator != address(this)) revert NftOwnerOnly();
+            _addLiquidityFromNftTransfer(tokenId, from, instructions);
+        } else {
+            _executePositionAction(tokenId, instructions);
+        }
+
+        positions.safeTransferFrom(address(this), from, tokenId, instructions.returnData);
+        return IERC721Receiver.onERC721Received.selector;
+    }
+
+    function _executePositionAction(uint256 tokenId, Instructions memory instructions) internal {
         (uint128 availableLiquidity,,,,) = positions.getPositionFeesAndLiquidity(
             tokenId, instructions.position.poolKey, instructions.position.tickLower, instructions.position.tickUpper
         );
@@ -258,16 +258,15 @@ contract EkuboUtils is IERC721Receiver {
         } else {
             revert NotSupportedWhatToDo();
         }
-
-        positions.safeTransferFrom(address(this), from, tokenId, instructions.returnData);
-        return IERC721Receiver.onERC721Received.selector;
     }
 
     /// @notice Swaps an exact maximum input through the configured router and returns all resulting assets.
     function swap(SwapParams calldata params) external payable nonReentrant returns (uint256 amountOut) {
         if (address(params.tokenIn) == address(params.tokenOut)) revert SameToken();
         _validateRecipient(params.recipient);
-        _prepareAdd(params.tokenIn, IERC20(address(0)), IERC20(address(0)), params.amountIn, 0, 0);
+        _prepareAdd(
+            msg.sender, msg.value, params.tokenIn, IERC20(address(0)), IERC20(address(0)), params.amountIn, 0, 0
+        );
 
         (uint256 amountInDelta, uint256 amountOutDelta) =
             _swap(params.tokenIn, params.tokenOut, params.amountIn, params.minAmountOut, params.swapData);
@@ -292,7 +291,14 @@ contract EkuboUtils is IERC721Receiver {
 
         (IERC20 token0, IERC20 token1) = _normalizedTokens(params.position.poolKey);
         _prepareAdd(
-            token0, token1, params.swapSourceToken, params.amount0, params.amount1, params.amountIn0 + params.amountIn1
+            msg.sender,
+            msg.value,
+            token0,
+            token1,
+            params.swapSourceToken,
+            params.amount0,
+            params.amount1,
+            params.amountIn0 + params.amountIn1
         );
         (uint256 total0, uint256 total1) = _swapAndPrepareAmounts(params, token0, token1);
         (tokenId, liquidity, amount0, amount1) = _mintAndDeposit(params.position, total0, total1, params.minLiquidity);
@@ -301,45 +307,55 @@ contract EkuboUtils is IERC721Receiver {
         emit SwapAndMint(tokenId, liquidity, amount0, amount1);
     }
 
-    /// @notice Swaps as requested and adds the resulting pair to an approved Ekubo NFT position.
-    /// @dev Ekubo requires this contract to be approved for tokenId before calling this function.
-    function swapAndIncreaseLiquidity(SwapAndIncreaseLiquidityParams calldata params)
-        external
-        payable
-        nonReentrant
-        returns (uint128 liquidity, uint128 amount0, uint128 amount1)
-    {
-        _checkDeadline(params.deadline);
-        _validatePosition(params.position);
-        _validateRecipient(params.recipient);
-
-        (IERC20 token0, IERC20 token1) = _normalizedTokens(params.position.poolKey);
+    function _addLiquidityFromNftTransfer(uint256 tokenId, address payer, Instructions memory instructions) internal {
+        (IERC20 token0, IERC20 token1) = _normalizedTokens(instructions.position.poolKey);
+        IERC20 sourceToken = IERC20(instructions.swapSourceToken);
         _prepareAdd(
-            token0, token1, params.swapSourceToken, params.amount0, params.amount1, params.amountIn0 + params.amountIn1
+            payer,
+            0,
+            token0,
+            token1,
+            sourceToken,
+            instructions.amount0,
+            instructions.amount1,
+            uint256(instructions.amountIn0) + instructions.amountIn1
         );
 
-        SwapAndMintParams memory mintParams = SwapAndMintParams({
-            position: params.position,
-            amount0: params.amount0,
-            amount1: params.amount1,
-            recipient: params.recipient,
+        SwapAndMintParams memory swapParams = SwapAndMintParams({
+            position: instructions.position,
+            amount0: instructions.amount0,
+            amount1: instructions.amount1,
+            recipient: instructions.recipient,
             recipientNFT: address(0),
-            deadline: params.deadline,
-            swapSourceToken: params.swapSourceToken,
-            amountIn0: params.amountIn0,
-            amountOut0Min: params.amountOut0Min,
-            swapData0: params.swapData0,
-            amountIn1: params.amountIn1,
-            amountOut1Min: params.amountOut1Min,
-            swapData1: params.swapData1,
-            minLiquidity: params.minLiquidity,
+            deadline: instructions.deadline,
+            swapSourceToken: sourceToken,
+            amountIn0: instructions.amountIn0,
+            amountOut0Min: instructions.amountOut0Min,
+            swapData0: instructions.swapData0,
+            amountIn1: instructions.amountIn1,
+            amountOut1Min: instructions.amountOut1Min,
+            swapData1: instructions.swapData1,
+            minLiquidity: instructions.minLiquidity,
             returnData: "",
-            unwrap: params.unwrap
+            unwrap: instructions.unwrap
         });
-        (uint256 total0, uint256 total1) = _swapAndPrepareAmounts(mintParams, token0, token1);
-        (liquidity, amount0, amount1) = _deposit(params.tokenId, params.position, total0, total1, params.minLiquidity);
-        _returnLeftovers(params.recipient, params.position.poolKey, total0, total1, amount0, amount1, params.unwrap);
-        emit SwapAndIncreaseLiquidity(params.tokenId, liquidity, amount0, amount1);
+        (uint256 total0, uint256 total1) = _swapAndPrepareAmounts(swapParams, token0, token1);
+        (uint128 liquidity, uint128 amount0, uint128 amount1) =
+            _depositAndReturnAddLeftovers(tokenId, instructions, total0, total1);
+        emit SwapAndIncreaseLiquidity(tokenId, liquidity, amount0, amount1);
+    }
+
+    function _depositAndReturnAddLeftovers(
+        uint256 tokenId,
+        Instructions memory instructions,
+        uint256 total0,
+        uint256 total1
+    ) internal returns (uint128 liquidity, uint128 amount0, uint128 amount1) {
+        (liquidity, amount0, amount1) =
+            _deposit(tokenId, instructions.position, total0, total1, instructions.minLiquidity);
+        _returnLeftovers(
+            instructions.recipient, instructions.position.poolKey, total0, total1, amount0, amount1, instructions.unwrap
+        );
     }
 
     function _withdrawAndSwap(Instructions memory instructions, uint256 amount0, uint256 amount1, uint256 tokenId)
@@ -440,6 +456,8 @@ contract EkuboUtils is IERC721Receiver {
     }
 
     function _prepareAdd(
+        address payer,
+        uint256 nativeValue,
         IERC20 token0,
         IERC20 token1,
         IERC20 otherToken,
@@ -451,36 +469,36 @@ contract EkuboUtils is IERC721Receiver {
         uint256 supplied1;
         uint256 suppliedOther;
 
-        if (msg.value != 0) {
-            weth.deposit{value: msg.value}();
+        if (nativeValue != 0) {
+            weth.deposit{value: nativeValue}();
             if (address(token0) == address(weth)) {
-                supplied0 = msg.value;
+                supplied0 = nativeValue;
                 if (supplied0 > amount0) revert TooMuchEtherSent();
             } else if (address(token1) == address(weth)) {
-                supplied1 = msg.value;
+                supplied1 = nativeValue;
                 if (supplied1 > amount1) revert TooMuchEtherSent();
             } else if (address(otherToken) == address(weth)) {
-                suppliedOther = msg.value;
+                suppliedOther = nativeValue;
                 if (suppliedOther > amountOther) revert TooMuchEtherSent();
             } else {
                 revert TooMuchEtherSent();
             }
         }
 
-        if (amount0 > supplied0) _pullExact(token0, amount0 - supplied0);
-        if (amount1 > supplied1) _pullExact(token1, amount1 - supplied1);
+        if (amount0 > supplied0) _pullExact(payer, token0, amount0 - supplied0);
+        if (amount1 > supplied1) _pullExact(payer, token1, amount1 - supplied1);
         if (
             amountOther > suppliedOther && address(otherToken) != address(0) && address(otherToken) != address(token0)
                 && address(otherToken) != address(token1)
         ) {
-            _pullExact(otherToken, amountOther - suppliedOther);
+            _pullExact(payer, otherToken, amountOther - suppliedOther);
         }
     }
 
-    function _pullExact(IERC20 token, uint256 amount) internal {
+    function _pullExact(address payer, IERC20 token, uint256 amount) internal {
         if (amount == 0) return;
         uint256 beforeBalance = token.balanceOf(address(this));
-        token.safeTransferFrom(msg.sender, address(this), amount);
+        token.safeTransferFrom(payer, address(this), amount);
         if (token.balanceOf(address(this)) - beforeBalance != amount) revert TransferError();
     }
 

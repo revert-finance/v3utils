@@ -9,14 +9,16 @@ It uses Foundry as development toolchain.
 `src/EkuboUtils.sol` provides the V3Utils-style position action surface for Ekubo's canonical Ethereum deployment:
 
 - swap and mint a new position;
-- swap and add liquidity to an existing approved NFT;
+- swap and add liquidity while temporarily holding an existing NFT;
 - collect and compound all fees;
 - fully withdraw and optionally swap to one asset; and
 - move range by fully emptying the old range and minting a replacement NFT.
 
 The contract intentionally supports only extension-free concentrated-liquidity pools. Ekubo extensions and stableswap pools are rejected. A move-range operation must withdraw the complete old range; the original empty NFT is returned to its owner and the replacement NFT is sent to the requested NFT recipient. This preserves a one-range-per-NFT history for downstream position tracking. Ekubo only exposes all-or-nothing fee collection, so instructions choose whether to collect all accrued fees rather than setting per-token fee caps.
 
-Ekubo pool keys use `address(0)` for native ETH. At the public and swap boundaries, `EkuboUtils` represents that asset as WETH and can optionally unwrap returned WETH. Existing NFT deposits require the user to approve `EkuboUtils` for the NFT because Ekubo's Positions contract authorizes deposits by NFT owner/operator.
+Existing-position actions use temporary NFT custody. The owner calls the canonical Positions contract's four-argument `safeTransferFrom(owner, ekuboUtils, tokenId, abi.encode(instructions))`; `EkuboUtils` performs the requested action as the temporary owner and returns the original NFT before the callback completes. No NFT approval is created or left behind. The `execute` convenience function remains available when a prior one-token approval is preferred, and that approval is cleared by the NFT transfer.
+
+ERC-20 allowances are still required when the action supplies new assets. Ekubo pool keys use `address(0)` for native ETH, which `EkuboUtils` represents as WETH at its public and swap boundaries. Existing-position actions therefore pull WETH and unwrap it internally when depositing into a native-token pool; newly created positions can also be funded with `msg.value`.
 
 The mainnet deployment script pins the addresses published with [Ekubo EVM contracts v3.2.0](https://github.com/EkuboProtocol/evm-contracts/releases/tag/v3.2.0):
 
