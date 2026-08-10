@@ -22,7 +22,8 @@ contract EkuboUtils is IERC721Receiver {
     IEkuboPositions public immutable positions;
     address public immutable core;
     IWETH9 public immutable weth;
-    address public immutable swapRouter;
+    /// @notice 0x Swap API v2 AllowanceHolder used as both allowance target and call target.
+    address public immutable zeroxAllowanceHolder;
 
     uint256 private _locked = 1;
 
@@ -105,7 +106,9 @@ contract EkuboUtils is IERC721Receiver {
         IERC20 tokenOut;
         uint256 amountIn;
         uint256 minAmountOut;
+        uint256 deadline;
         address recipient;
+        // Raw transaction.data returned by the 0x Swap API v2 AllowanceHolder quote.
         bytes swapData;
         bool unwrap;
     }
@@ -136,17 +139,17 @@ contract EkuboUtils is IERC721Receiver {
         _locked = 1;
     }
 
-    constructor(IEkuboPositions _positions, address _core, IWETH9 _weth, address _swapRouter) {
+    constructor(IEkuboPositions _positions, address _core, IWETH9 _weth, address _zeroxAllowanceHolder) {
         if (
             address(_positions) == address(0) || _core == address(0) || address(_weth) == address(0)
-                || _swapRouter == address(0)
+                || _zeroxAllowanceHolder == address(0)
         ) {
             revert InvalidRecipient();
         }
         positions = _positions;
         core = _core;
         weth = _weth;
-        swapRouter = _swapRouter;
+        zeroxAllowanceHolder = _zeroxAllowanceHolder;
     }
 
     /// @notice Pulls an approved Ekubo NFT into this contract and executes an operation.
@@ -260,8 +263,9 @@ contract EkuboUtils is IERC721Receiver {
         }
     }
 
-    /// @notice Swaps an exact maximum input through the configured router and returns all resulting assets.
+    /// @notice Swaps an exact maximum input through 0x AllowanceHolder and returns all resulting assets.
     function swap(SwapParams calldata params) external payable nonReentrant returns (uint256 amountOut) {
+        _checkDeadline(params.deadline);
         if (address(params.tokenIn) == address(params.tokenOut)) revert SameToken();
         _validateRecipient(params.recipient);
         _prepareAdd(
@@ -630,13 +634,11 @@ contract EkuboUtils is IERC721Receiver {
 
         uint256 balanceInBefore = tokenIn.balanceOf(address(this));
         uint256 balanceOutBefore = tokenOut.balanceOf(address(this));
-        (address allowanceTarget, bytes memory data) = abi.decode(swapData, (address, bytes));
-        tokenIn.safeApprove(allowanceTarget, 0);
-        tokenIn.safeApprove(allowanceTarget, amountIn);
+        tokenIn.safeIncreaseAllowance(zeroxAllowanceHolder, amountIn);
 
-        (bool success,) = swapRouter.call(data);
+        (bool success,) = zeroxAllowanceHolder.call(swapData);
         if (!success) revert SwapFailed();
-        tokenIn.safeApprove(allowanceTarget, 0);
+        tokenIn.safeApprove(zeroxAllowanceHolder, 0);
 
         amountInDelta = balanceInBefore - tokenIn.balanceOf(address(this));
         amountOutDelta = tokenOut.balanceOf(address(this)) - balanceOutBefore;

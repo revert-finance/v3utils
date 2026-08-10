@@ -198,7 +198,7 @@ contract MockEkuboPositions is ERC721 {
     }
 }
 
-contract MockSwapRouter {
+contract MockAllowanceHolder {
     using SafeERC20 for IERC20;
 
     function swap(IERC20 tokenIn, IERC20 tokenOut, uint256 amountIn, uint256 amountOut) external {
@@ -215,7 +215,7 @@ contract EkuboUtilsTest is Test {
     MockWETH internal weth;
     MockEkuboCore internal core;
     MockEkuboPositions internal positions;
-    MockSwapRouter internal router;
+    MockAllowanceHolder internal allowanceHolder;
     EkuboUtils internal utils;
     IERC20 internal token0;
     IERC20 internal token1;
@@ -227,9 +227,10 @@ contract EkuboUtilsTest is Test {
         weth = new MockWETH();
         core = new MockEkuboCore();
         positions = new MockEkuboPositions(core);
-        router = new MockSwapRouter();
-        utils =
-            new EkuboUtils(IEkuboPositions(address(positions)), address(core), IWETH9(address(weth)), address(router));
+        allowanceHolder = new MockAllowanceHolder();
+        utils = new EkuboUtils(
+            IEkuboPositions(address(positions)), address(core), IWETH9(address(weth)), address(allowanceHolder)
+        );
 
         (token0, token1) = address(tokenA) < address(tokenB)
             ? (IERC20(address(tokenA)), IERC20(address(tokenB)))
@@ -242,8 +243,8 @@ contract EkuboUtilsTest is Test {
 
         tokenA.mint(user, 1_000_000 ether);
         tokenB.mint(user, 1_000_000 ether);
-        tokenA.mint(address(router), 1_000_000 ether);
-        tokenB.mint(address(router), 1_000_000 ether);
+        tokenA.mint(address(allowanceHolder), 1_000_000 ether);
+        tokenB.mint(address(allowanceHolder), 1_000_000 ether);
         vm.deal(user, 10 ether);
 
         vm.startPrank(user);
@@ -273,6 +274,7 @@ contract EkuboUtilsTest is Test {
             tokenOut: token1,
             amountIn: 100,
             minAmountOut: 75,
+            deadline: block.timestamp,
             recipient: user,
             swapData: _swapData(token0, token1, 80, 75),
             unwrap: false
@@ -285,6 +287,25 @@ contract EkuboUtilsTest is Test {
         assertEq(token1.balanceOf(user) - outputBefore, 75);
         assertEq(token0.balanceOf(address(utils)), 0);
         assertEq(token1.balanceOf(address(utils)), 0);
+        assertEq(token0.allowance(address(utils), address(allowanceHolder)), 0);
+    }
+
+    function testSwapRejectsExpiredDeadline() external {
+        vm.warp(2);
+        EkuboUtils.SwapParams memory params = EkuboUtils.SwapParams({
+            tokenIn: token0,
+            tokenOut: token1,
+            amountIn: 100,
+            minAmountOut: 75,
+            deadline: 1,
+            recipient: user,
+            swapData: _swapData(token0, token1, 80, 75),
+            unwrap: false
+        });
+
+        vm.prank(user);
+        vm.expectRevert(EkuboUtils.DeadlineExpired.selector);
+        utils.swap(params);
     }
 
     function testSwapAndMintRebalancesOnePoolToken() external {
@@ -559,11 +580,10 @@ contract EkuboUtilsTest is Test {
 
     function _swapData(IERC20 tokenIn_, IERC20 tokenOut_, uint256 amountIn, uint256 amountOut)
         internal
-        view
+        pure
         returns (bytes memory)
     {
-        bytes memory data = abi.encodeCall(MockSwapRouter.swap, (tokenIn_, tokenOut_, amountIn, amountOut));
-        return abi.encode(address(router), data);
+        return abi.encodeCall(MockAllowanceHolder.swap, (tokenIn_, tokenOut_, amountIn, amountOut));
     }
 
     function _concentratedConfig(uint32 tickSpacing) internal pure returns (bytes32) {

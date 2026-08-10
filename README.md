@@ -20,10 +20,13 @@ Existing-position actions use temporary NFT custody. The owner calls the canonic
 
 ERC-20 allowances are still required when the action supplies new assets. Ekubo pool keys use `address(0)` for native ETH, which `EkuboUtils` represents as WETH at its public and swap boundaries. Existing-position actions therefore pull WETH and unwrap it internally when depositing into a native-token pool; newly created positions can also be funded with `msg.value`.
 
+Swaps use the same 0x Swap API v2 AllowanceHolder flow as the active V3Utils2 and V4Utils deployments. Request the quote with the deployed `EkuboUtils` address as `taker`, pass `quote.transaction.data` directly as `swapData`, and use the quote's `minBuyAmount` as the operation's minimum output. The contract approves only its immutable AllowanceHolder, calls that same address, and clears the allowance after every successful swap.
+
 The mainnet deployment script pins the addresses published with [Ekubo EVM contracts v3.2.0](https://github.com/EkuboProtocol/evm-contracts/releases/tag/v3.2.0):
 
 - Core: `0x00000000000014aA86C5d3c41765bb24e11bd701`
 - Positions: `0x02D9876A21AF7545f8632C3af76eC90b5ad4b66D`
+- 0x AllowanceHolder: `0x0000000000001fF3684f28c67538d4D072C22734`
 
 The utility is ownerless, but it has not been audited. Do not deploy it for production funds before an independent security review.
 
