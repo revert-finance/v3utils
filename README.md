@@ -4,6 +4,27 @@ This repository contains the smart contracts for revert v3utils.
 
 It uses Foundry as development toolchain.
 
+## EkuboUtils
+
+`src/EkuboUtils.sol` provides the V3Utils-style position action surface for Ekubo's canonical Ethereum deployment:
+
+- swap and mint a new position;
+- swap and add liquidity to an existing approved NFT;
+- collect and compound all fees;
+- fully withdraw and optionally swap to one asset; and
+- move range by fully emptying the old range and minting a replacement NFT.
+
+The contract intentionally supports only extension-free concentrated-liquidity pools. Ekubo extensions and stableswap pools are rejected. A move-range operation must withdraw the complete old range; the original empty NFT is returned to its owner and the replacement NFT is sent to the requested NFT recipient. This preserves a one-range-per-NFT history for downstream position tracking. Ekubo only exposes all-or-nothing fee collection, so instructions choose whether to collect all accrued fees rather than setting per-token fee caps.
+
+Ekubo pool keys use `address(0)` for native ETH. At the public and swap boundaries, `EkuboUtils` represents that asset as WETH and can optionally unwrap returned WETH. Existing NFT deposits require the user to approve `EkuboUtils` for the NFT because Ekubo's Positions contract authorizes deposits by NFT owner/operator.
+
+The mainnet deployment script pins the addresses published with [Ekubo EVM contracts v3.2.0](https://github.com/EkuboProtocol/evm-contracts/releases/tag/v3.2.0):
+
+- Core: `0x00000000000014aA86C5d3c41765bb24e11bd701`
+- Positions: `0x02D9876A21AF7545f8632C3af76eC90b5ad4b66D`
+
+The utility is ownerless, but it has not been audited. Do not deploy it for production funds before an independent security review.
+
 
 ## Setup
 
@@ -24,6 +45,12 @@ Most tests use a forked state of Ethereum Mainnet. You can run all tests with:
 
 ```sh
 forge test --via-ir
+```
+
+The Ekubo mainnet-fork test requires `MAINNET_RPC_URL`:
+
+```sh
+MAINNET_RPC_URL=https://... forge test --via-ir --match-contract EkuboUtilsIntegrationTest
 ```
 
 
