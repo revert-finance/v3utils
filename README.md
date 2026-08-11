@@ -28,7 +28,13 @@ The mainnet deployment script pins the addresses published with [Ekubo EVM contr
 - Positions: `0x02D9876A21AF7545f8632C3af76eC90b5ad4b66D`
 - 0x AllowanceHolder: `0x0000000000001fF3684f28c67538d4D072C22734`
 
-The utility is ownerless, but it has not been audited. Do not deploy it for production funds before an independent security review.
+### Ethereum mainnet deployment
+
+- EkuboUtils: [`0x93E1b9729f745B3D450EB7CDd8085649AF405102`](https://etherscan.io/address/0x93E1b9729f745B3D450EB7CDd8085649AF405102)
+- Deployment transaction: [`0xf557be76829604b0ee9f86187082c200de9f6db2d9cf85d87602967b927ac25a`](https://etherscan.io/tx/0xf557be76829604b0ee9f86187082c200de9f6db2d9cf85d87602967b927ac25a)
+- Deployment block: `25727695`
+
+The deployed utility is ownerless, but it has not been audited. Revert's Ekubo position-management actions remain disabled until an independent security review and the dedicated Ekubo action interface are complete.
 
 
 ## Setup
